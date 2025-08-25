@@ -2,16 +2,24 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import { PasswordUtil } from './utils';
+import { ResponseTransformInterceptor } from './common/interceptors';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 
   // Initialize password utility with config
   PasswordUtil.setRounds(configService);
+
+  // Servir les fichiers statiques pour les avatars
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -25,9 +33,14 @@ async function bootstrap() {
     }),
   );
 
+  // Global response transformation interceptor
+  app.useGlobalInterceptors(new ResponseTransformInterceptor());
+
   // CORS configuration
   app.enableCors({
-    origin: true,
+    origin: ['http://localhost:3001', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   });
 

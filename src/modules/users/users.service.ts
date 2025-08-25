@@ -82,7 +82,7 @@ export class UsersService {
     const query = this.userModel.findOne({ email });
     
     if (includePassword) {
-      query.select('+password +refreshTokens +passwordResetToken +passwordResetExpires');
+      query.select('+password +refreshTokens');
     }
 
     return query.exec();
@@ -132,26 +132,11 @@ export class UsersService {
     });
   }
 
-  async setPasswordResetToken(userId: string, token: string, expires: Date): Promise<void> {
-    await this.userModel.findByIdAndUpdate(userId, {
-      passwordResetToken: token,
-      passwordResetExpires: expires,
-    });
-  }
-
-  async findByPasswordResetToken(token: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({
-      passwordResetToken: token,
-      passwordResetExpires: { $gt: new Date() },
-    }).select('+passwordResetToken +passwordResetExpires');
-  }
-
   async updatePassword(userId: string, newPassword: string): Promise<void> {
     const hashedPassword = await PasswordUtil.hash(newPassword);
     
     await this.userModel.findByIdAndUpdate(userId, {
       password: hashedPassword,
-      $unset: { passwordResetToken: 1, passwordResetExpires: 1 },
     });
   }
 }

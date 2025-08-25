@@ -47,12 +47,6 @@ export class User {
   @Prop({ type: [String], select: false, default: [] })
   refreshTokens: string[];
 
-  @Prop({ select: false })
-  passwordResetToken: string;
-
-  @Prop({ select: false })
-  passwordResetExpires: Date;
-
   createdAt: Date;
   updatedAt: Date;
 }
