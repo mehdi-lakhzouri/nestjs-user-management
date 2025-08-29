@@ -45,8 +45,8 @@ RUN npm ci --only=production && npm cache clean --force
 # Copier l'application buildée depuis le stage builder
 COPY --from=builder /app/dist ./dist
 
-# Copier le dossier uploads (si nécessaire pour les avatars)
-COPY --from=builder /app/uploads ./uploads
+# Créer le dossier uploads (au lieu de le copier)
+RUN mkdir -p ./uploads/avatars
 
 # Copier le script d'entrypoint
 COPY entrypoint.sh ./

@@ -54,6 +54,9 @@ CHANGELOG.md
 API_TESTS.md
 SUMMARY.md
 
+# Uploads (créés au runtime)
+uploads
+
 # Tests
 test
 *.test.js
