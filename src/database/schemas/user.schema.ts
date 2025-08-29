@@ -47,6 +47,9 @@ export class User {
   @Prop({ type: [String], select: false, default: [] })
   refreshTokens: string[];
 
+  @Prop({ default: false, select: false })
+  mustChangePassword: boolean;
+
   createdAt: Date;
   updatedAt: Date;
 }

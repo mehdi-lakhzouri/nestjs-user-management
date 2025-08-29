@@ -44,69 +44,53 @@ export class EmailService {
       to: email,
       subject: 'Réinitialisation de votre mot de passe',
       html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            .container { max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; }
-            .header { background-color: #f8f9fa; padding: 20px; text-align: center; }
-            .content { padding: 20px; }
-            .button { 
-              display: inline-block; 
-              padding: 12px 24px; 
-              background-color: #007bff; 
-              color: white; 
-              text-decoration: none; 
-              border-radius: 5px; 
-              margin: 20px 0;
-            }
-            .footer { background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 14px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>Réinitialisation de mot de passe</h1>
-            </div>
-            <div class="content">
-              <p>Bonjour ${fullname},</p>
-              
-              <p>Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe :</p>
-              
-              <p style="text-align: center;">
-                <a href="${resetUrl}" class="button">Réinitialiser mon mot de passe</a>
-              </p>
-              
-              <p>Si le bouton ne fonctionne pas, vous pouvez copier et coller ce lien dans votre navigateur :</p>
-              <p style="word-break: break-all; background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
-                ${resetUrl}
-              </p>
-              
-              <p><strong>Important :</strong></p>
-              <ul>
-                <li>Ce lien est valide pendant 30 minutes seulement</li>
-                <li>Si vous n'avez pas demandé cette réinitialisation, ignorez cet email</li>
-                <li>Pour votre sécurité, ce lien ne peut être utilisé qu'une seule fois</li>
-              </ul>
-            </div>
-            <div class="footer">
-              <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
-              <p>© 2025 User Management App. Tous droits réservés.</p>
-            </div>
-          </div>
-        </body>
-        </html>
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { margin: 0; padding: 0; width: 100% !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f4f7; color: #333; }
+          .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; }
+          .content { padding: 40px; text-align: center; }
+          h1 { font-size: 24px; font-weight: 600; color: #1a1a1a; margin: 0 0 20px; }
+          p { font-size: 16px; line-height: 1.6; color: #555; margin: 0 0 30px; }
+          .button { display: inline-block; padding: 14px 28px; background-color: #1E90FF; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #888; }
+          .link { word-break: break-all; color: #1E90FF; }
+        </style>
+      </head>
+      <body>
+        <table width="100%" border="0" cellspacing="0" cellpadding="20" style="background-color:#f4f4f7;">
+          <tr>
+            <td>
+              <div class="container">
+                <div class="content">
+                  <h1>Réinitialisation de mot de passe</h1>
+                  <p>Bonjour ${fullname},</p>
+                  <p>Nous avons reçu une demande de réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour en définir un nouveau.</p>
+                  <a href="${resetUrl}" class="button">Réinitialiser mon mot de passe</a>
+                  <p style="margin-top: 30px; font-size: 14px; color: #777;">Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail en toute sécurité.</p>
+                </div>
+                <div class="footer">
+                  <p>Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :<br><a href="${resetUrl}" class="link">${resetUrl}</a></p>
+                  <p>© ${new Date().getFullYear()} User Management App. Tous droits réservés.</p>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
       `,
       text: `
         Bonjour ${fullname},
         
-        Vous avez demandé la réinitialisation de votre mot de passe.
+        Nous avons reçu une demande de réinitialisation de votre mot de passe.
         
         Cliquez sur ce lien pour créer un nouveau mot de passe : ${resetUrl}
         
-        Ce lien est valide pendant 30 minutes seulement.
-        Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.
+        Ce lien est valide pendant 30 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.
         
         Cordialement,
         L'équipe User Management App
@@ -126,74 +110,53 @@ export class EmailService {
     const mailOptions = {
       from: `"User Management App" <${this.configService.get<string>('SMTP_USER')}>`,
       to: email,
-      subject: 'Votre code de connexion OTP',
+      subject: 'Votre code de connexion unique',
       html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            .container { max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; }
-            .header { background-color: #007bff; padding: 20px; text-align: center; color: white; }
-            .content { padding: 20px; }
-            .otp-code { 
-              font-size: 32px; 
-              font-weight: bold; 
-              color: #007bff; 
-              text-align: center; 
-              background-color: #f8f9fa; 
-              padding: 20px; 
-              border-radius: 10px; 
-              margin: 20px 0;
-              letter-spacing: 8px;
-              border: 2px dashed #007bff;
-            }
-            .footer { background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 14px; color: #666; }
-            .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>🔐 Code de Connexion OTP</h1>
-            </div>
-            <div class="content">
-              <p>Bonjour ${fullname},</p>
-              
-              <p>Voici votre code de connexion temporaire :</p>
-              
-              <div class="otp-code">${otp}</div>
-              
-              <div class="warning">
-                <strong>⚠️ Important :</strong>
-                <ul>
-                  <li>Ce code est valide pendant <strong>4 minutes</strong> seulement</li>
-                  <li>Vous disposez de <strong>3 tentatives maximum</strong></li>
-                  <li>Ne partagez jamais ce code avec personne</li>
-                  <li>Si vous n'avez pas demandé ce code, ignorez cet email</li>
-                </ul>
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { margin: 0; padding: 0; width: 100% !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f4f7; color: #333; }
+          .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; }
+          .content { padding: 40px; text-align: center; }
+          h1 { font-size: 24px; font-weight: 600; color: #1a1a1a; margin: 0 0 20px; }
+          p { font-size: 16px; line-height: 1.6; color: #555; margin: 0 0 30px; }
+          .otp-code { display: inline-block; background-color: #f4f4f7; padding: 15px 30px; border-radius: 6px; font-size: 28px; font-weight: 700; letter-spacing: 4px; color: #1E90FF; margin-bottom: 30px; }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #888; }
+        </style>
+      </head>
+      <body>
+        <table width="100%" border="0" cellspacing="0" cellpadding="20" style="background-color:#f4f4f7;">
+          <tr>
+            <td>
+              <div class="container">
+                <div class="content">
+                  <h1>Votre code de connexion</h1>
+                  <p>Bonjour ${fullname},</p>
+                  <p>Utilisez le code ci-dessous pour vous connecter en toute sécurité à votre compte.</p>
+                  <div class="otp-code">${otp}</div>
+                  <p style="font-size: 14px; color: #777;">Ce code expirera dans 4 minutes. Ne le partagez avec personne.</p>
+                </div>
+                <div class="footer">
+                  <p>Si vous n'avez pas demandé ce code, vous pouvez ignorer cet e-mail.</p>
+                  <p>© ${new Date().getFullYear()} User Management App. Tous droits réservés.</p>
+                </div>
               </div>
-              
-              <p>Saisissez ce code dans l'application pour vous connecter en toute sécurité.</p>
-            </div>
-            <div class="footer">
-              <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
-              <p>© 2025 User Management App. Tous droits réservés.</p>
-            </div>
-          </div>
-        </body>
-        </html>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
       `,
       text: `
         Bonjour ${fullname},
         
-        Voici votre code de connexion temporaire : ${otp}
+        Voici votre code de connexion : ${otp}
         
-        Ce code est valide pendant 4 minutes seulement.
-        Vous disposez de 3 tentatives maximum.
-        
-        Ne partagez jamais ce code avec personne.
-        Si vous n'avez pas demandé ce code, ignorez cet email.
+        Ce code est valide pendant 4 minutes. Ne le partagez avec personne.
+        Si vous n'avez pas demandé ce code, ignorez cet e-mail.
         
         Cordialement,
         L'équipe User Management App
@@ -213,59 +176,49 @@ export class EmailService {
     const mailOptions = {
       from: `"User Management App" <${this.configService.get<string>('SMTP_USER')}>`,
       to: email,
-      subject: 'Votre mot de passe a été modifié',
+      subject: 'Confirmation de changement de mot de passe',
       html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            .container { max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; }
-            .header { background-color: #28a745; padding: 20px; text-align: center; color: white; }
-            .content { padding: 20px; }
-            .footer { background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 14px; color: #666; }
-            .alert { background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>✅ Mot de passe modifié avec succès</h1>
-            </div>
-            <div class="content">
-              <p>Bonjour ${fullname},</p>
-              
-              <p>Votre mot de passe a été modifié avec succès le ${new Date().toLocaleString('fr-FR')}.</p>
-              
-              <div class="alert">
-                <strong>⚠️ Sécurité :</strong> Si vous n'êtes pas à l'origine de cette modification, contactez immédiatement notre support.
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { margin: 0; padding: 0; width: 100% !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f4f7; color: #333; }
+          .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; }
+          .content { padding: 40px; text-align: center; }
+          h1 { font-size: 24px; font-weight: 600; color: #1a1a1a; margin: 0 0 20px; }
+          p { font-size: 16px; line-height: 1.6; color: #555; margin: 0 0 30px; }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #888; }
+        </style>
+      </head>
+      <body>
+        <table width="100%" border="0" cellspacing="0" cellpadding="20" style="background-color:#f4f4f7;">
+          <tr>
+            <td>
+              <div class="container">
+                <div class="content">
+                  <h1>Mot de passe modifié</h1>
+                  <p>Bonjour ${fullname},</p>
+                  <p>Nous vous confirmons que le mot de passe de votre compte a été modifié avec succès le ${new Date().toLocaleString('fr-FR')}.</p>
+                  <p style="font-size: 14px; color: #777;">Si vous n'êtes pas à l'origine de cette action, veuillez contacter immédiatement notre support.</p>
+                </div>
+                <div class="footer">
+                  <p>© ${new Date().getFullYear()} User Management App. Tous droits réservés.</p>
+                </div>
               </div>
-              
-              <p>Pour votre sécurité :</p>
-              <ul>
-                <li>Toutes vos sessions actives ont été déconnectées</li>
-                <li>Vous devrez vous reconnecter avec votre nouveau mot de passe</li>
-                <li>Assurez-vous d'utiliser un mot de passe unique et sécurisé</li>
-              </ul>
-              
-              <p>Merci de faire confiance à notre service.</p>
-            </div>
-            <div class="footer">
-              <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
-              <p>© 2025 User Management App. Tous droits réservés.</p>
-            </div>
-          </div>
-        </body>
-        </html>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
       `,
       text: `
         Bonjour ${fullname},
         
-        Votre mot de passe a été modifié avec succès le ${new Date().toLocaleString('fr-FR')}.
+        Nous vous confirmons que le mot de passe de votre compte a été modifié avec succès le ${new Date().toLocaleString('fr-FR')}.
         
-        Si vous n'êtes pas à l'origine de cette modification, contactez immédiatement notre support.
-        
-        Pour votre sécurité, toutes vos sessions actives ont été déconnectées.
+        Si vous n'êtes pas à l'origine de cette action, veuillez contacter immédiatement notre support.
         
         Cordialement,
         L'équipe User Management App
@@ -278,6 +231,85 @@ export class EmailService {
     } catch (error) {
       this.logger.error(`Failed to send password changed email to ${email}:`, error);
       // Ne pas faire échouer la réinitialisation si l'email de confirmation échoue
+    }
+  }
+
+  async sendTemporaryPasswordEmail(
+    email: string, 
+    fullname: string, 
+    temporaryPassword: string,
+    createdByAdmin: string
+  ): Promise<void> {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    const loginUrl = `${frontendUrl}/login`;
+
+    const mailOptions = {
+      from: `"User Management App" <${this.configService.get<string>('SMTP_USER')}>`,
+      to: email,
+      subject: 'Bienvenue ! Votre compte a été créé',
+      html: `
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { margin: 0; padding: 0; width: 100% !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f4f7; color: #333; }
+          .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; }
+          .content { padding: 40px; text-align: center; }
+          h1 { font-size: 24px; font-weight: 600; color: #1a1a1a; margin: 0 0 20px; }
+          p { font-size: 16px; line-height: 1.6; color: #555; margin: 0 0 30px; }
+          .password-box { display: inline-block; background-color: #f4f4f7; padding: 15px 30px; border-radius: 6px; font-size: 28px; font-weight: 700; letter-spacing: 4px; color: #1E90FF; margin-bottom: 30px; }
+          .button { display: inline-block; padding: 14px 28px; background-color: #1E90FF; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #888; }
+        </style>
+      </head>
+      <body>
+        <table width="100%" border="0" cellspacing="0" cellpadding="20" style="background-color:#f4f4f7;">
+          <tr>
+            <td>
+              <div class="container">
+                <div class="content">
+                  <h1>Bienvenue !</h1>
+                  <p>Bonjour ${fullname},</p>
+                  <p>Un compte a été créé pour vous par <strong>${createdByAdmin}</strong>. Voici votre mot de passe temporaire pour vous connecter :</p>
+                  <div class="password-box">${temporaryPassword}</div>
+                  <a href="${loginUrl}" class="button">Se connecter</a>
+                  <p style="margin-top: 30px; font-size: 14px; color: #777;">Pour votre sécurité, il vous sera demandé de changer ce mot de passe lors de votre première connexion.</p>
+                </div>
+                <div class="footer">
+                  <p>Si vous avez des questions, n'hésitez pas à contacter votre administrateur.</p>
+                  <p>© ${new Date().getFullYear()} User Management App. Tous droits réservés.</p>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+      `,
+      text: `
+        Bonjour ${fullname},
+        
+        Un compte a été créé pour vous par ${createdByAdmin}.
+        
+        Votre mot de passe temporaire est : ${temporaryPassword}
+        
+        Connectez-vous ici : ${loginUrl}
+        
+        Pour votre sécurité, il vous sera demandé de changer ce mot de passe lors de votre première connexion.
+        
+        Cordialement,
+        L'équipe User Management App
+      `,
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(`Temporary password email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send temporary password email to ${email}:`, error);
+      throw new Error('Échec de l\'envoi de l\'email avec le mot de passe temporaire');
     }
   }
 }

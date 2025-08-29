@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { PasswordResetToken, PasswordResetTokenDocument } from '../../database/schemas/password-reset-token.schema';
 import { PasswordUtil } from '../../utils';
+import { AppLoggerService } from '../../common/logger';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class PasswordResetService {
   constructor(
     @InjectModel(PasswordResetToken.name)
     private passwordResetTokenModel: Model<PasswordResetTokenDocument>,
+    private readonly logger: AppLoggerService,
   ) {}
 
   async createResetToken(userId: string): Promise<{ token: string; hashedToken: string }> {
@@ -55,7 +57,10 @@ export class PasswordResetService {
 
       return { isValid: false };
     } catch (error) {
-      console.error('Error validating reset token:', error);
+      this.logger.error('Error validating reset token', error, {
+        module: 'PasswordResetService',
+        method: 'validateResetToken'
+      });
       return { isValid: false };
     }
   }

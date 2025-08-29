@@ -16,9 +16,12 @@ async function bootstrap() {
   // Initialize password utility with config
   PasswordUtil.setRounds(configService);
 
-  // Servir les fichiers statiques pour les avatars
+  // API prefix (défini AVANT les fichiers statiques)
+  app.setGlobalPrefix('api');
+
+  // Servir les fichiers statiques pour les avatars avec le préfixe API
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
-    prefix: '/uploads/',
+    prefix: '/api/uploads/',
   });
 
   // Global validation pipe
@@ -43,9 +46,6 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   });
-
-  // API prefix
-  app.setGlobalPrefix('api');
 
   // Swagger documentation
   const config = new DocumentBuilder()

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { TwoFaSession, TwoFaSessionDocument } from '../../database/schemas/two-fa-session.schema';
+import { AppLoggerService } from '../../common/logger';
 import * as crypto from 'crypto';
 
 export interface TwoFaSessionResult {
@@ -14,6 +15,7 @@ export class TwoFaService {
   constructor(
     @InjectModel(TwoFaSession.name)
     private twoFaSessionModel: Model<TwoFaSessionDocument>,
+    private readonly logger: AppLoggerService,
   ) {}
 
   /**
@@ -60,7 +62,11 @@ export class TwoFaService {
         sessionDoc
       };
     } catch (error) {
-      console.error('Error validating 2FA session:', error);
+      this.logger.error('Error validating 2FA session', error, {
+        module: 'TwoFaService',
+        method: 'validateTwoFaSession',
+        sessionToken
+      });
       return { isValid: false };
     }
   }

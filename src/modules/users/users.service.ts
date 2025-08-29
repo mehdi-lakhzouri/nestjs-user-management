@@ -8,15 +8,19 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from '../../database/schemas/user.schema';
 import { CreateUserDto, UpdateUserDto, QueryUsersDto } from './dto';
-import { PasswordUtil } from '../../utils';
+import { PasswordUtil, generateTemporaryPassword } from '../../utils';
+import { EmailService } from '../email/email.service';
+import { AppLoggerService } from '../../common/logger';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly emailService: EmailService,
+    private readonly logger: AppLoggerService,
   ) {}
 
-  async create(createUserDto: CreateUserDto, password?: string): Promise<UserDocument> {
+  async create(createUserDto: CreateUserDto, createdByAdminName?: string): Promise<{ user: UserDocument; temporaryPassword?: string }> {
     const existingUser = await this.userModel.findOne({ email: createUserDto.email });
     
     if (existingUser) {
@@ -24,13 +28,57 @@ export class UsersService {
     }
 
     const userData: any = { ...createUserDto };
+    let temporaryPassword: string | undefined;
     
-    if (password) {
-      userData.password = await PasswordUtil.hash(password);
+    // Si aucun mot de passe n'est fourni, générer un mot de passe temporaire
+    if (!createUserDto.password) {
+      temporaryPassword = generateTemporaryPassword();
+      userData.password = await PasswordUtil.hash(temporaryPassword);
+      userData.mustChangePassword = true;
+      
+      this.logger.info('Temporary password generated for new user', {
+        module: 'UsersService',
+        email: createUserDto.email,
+        createdBy: createdByAdminName || 'Admin',
+      });
+    } else {
+      userData.password = await PasswordUtil.hash(createUserDto.password);
+      userData.mustChangePassword = false;
     }
 
     const user = new this.userModel(userData);
-    return user.save();
+    const savedUser = await user.save();
+    
+    // Envoyer l'email avec le mot de passe temporaire si généré
+    if (temporaryPassword && createdByAdminName) {
+      try {
+        await this.emailService.sendTemporaryPasswordEmail(
+          createUserDto.email,
+          createUserDto.fullname,
+          temporaryPassword,
+          createdByAdminName
+        );
+        
+        this.logger.info('Temporary password email sent successfully', {
+          module: 'UsersService',
+          email: createUserDto.email,
+          createdBy: createdByAdminName,
+        });
+      } catch (emailError) {
+        this.logger.error('Failed to send temporary password email', emailError, {
+          module: 'UsersService',
+          email: createUserDto.email,
+        });
+        
+        // Ne pas faire échouer la création si l'email échoue
+        // L'admin peut toujours récupérer le mot de passe temporaire
+      }
+    }
+
+    return { 
+      user: savedUser, 
+      temporaryPassword: temporaryPassword 
+    };
   }
 
   async findAll(queryDto: QueryUsersDto): Promise<{ users: UserDocument[]; total: number; page: number; limit: number }> {
@@ -137,6 +185,18 @@ export class UsersService {
     
     await this.userModel.findByIdAndUpdate(userId, {
       password: hashedPassword,
+      mustChangePassword: false, // L'utilisateur a changé son mot de passe
+    });
+  }
+
+  async mustChangePassword(userId: string): Promise<boolean> {
+    const user = await this.userModel.findById(userId).select('+mustChangePassword');
+    return user?.mustChangePassword || false;
+  }
+
+  async markPasswordChanged(userId: string): Promise<void> {
+    await this.userModel.findByIdAndUpdate(userId, {
+      mustChangePassword: false,
     });
   }
 }

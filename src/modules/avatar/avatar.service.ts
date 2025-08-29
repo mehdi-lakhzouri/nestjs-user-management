@@ -6,6 +6,7 @@ import {
 import { promises as fs } from 'fs';
 import { extname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { AppLoggerService } from '../../common/logger';
 
 @Injectable()
 export class AvatarService {
@@ -14,7 +15,7 @@ export class AvatarService {
   private readonly allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png'];
   private readonly allowedExtensions = ['.jpg', '.jpeg', '.png'];
 
-  constructor() {
+  constructor(private readonly logger: AppLoggerService) {
     this.ensureUploadDirectoryExists();
   }
 
@@ -100,13 +101,26 @@ export class AvatarService {
       try {
         await fs.access(filePath);
         await fs.unlink(filePath);
+        this.logger.info('Avatar file deleted successfully', {
+          module: 'AvatarService',
+          method: 'deleteAvatar',
+          avatarUrl
+        });
       } catch (error) {
         // Le fichier n'existe pas ou ne peut pas être supprimé
         // On continue sans erreur pour éviter de bloquer l'opération
-        console.info(`Avatar déjà supprimé ou introuvable: ${filePath}`);
+        this.logger.info('Avatar file not found or already deleted', {
+          module: 'AvatarService',
+          method: 'deleteAvatar',
+          avatarUrl
+        });
       }
     } catch (error) {
-      console.error('Erreur lors de la suppression de l\'avatar:', error);
+      this.logger.error('Failed to delete avatar file', error, {
+        module: 'AvatarService',
+        method: 'deleteAvatar',
+        avatarUrl
+      });
       // On ne lance pas d'exception pour ne pas bloquer les autres opérations
     }
   }
@@ -120,8 +134,17 @@ export class AvatarService {
     } catch (error) {
       try {
         await fs.mkdir(this.uploadPath, { recursive: true });
+        this.logger.info('Upload directory created successfully', {
+          module: 'AvatarService',
+          method: 'ensureUploadDirectoryExists',
+          uploadPath: this.uploadPath
+        });
       } catch (mkdirError) {
-        console.error('Impossible de créer le dossier d\'upload:', mkdirError);
+        this.logger.error('Failed to create upload directory', mkdirError, {
+          module: 'AvatarService',
+          method: 'ensureUploadDirectoryExists',
+          uploadPath: this.uploadPath
+        });
       }
     }
   }

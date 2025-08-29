@@ -15,14 +15,14 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
-import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto, QueryUsersDto } from './dto';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { Roles, CurrentUser } from '../../common/decorators';
+import { AppLoggerService } from '../../common/logger';
 import { UserRole } from '../../database/schemas/user.schema';
 import { AvatarService } from '../avatar/avatar.service';
-import { AvatarUploadDto, AvatarUploadResponseDto } from '../avatar/dto';
+import { AvatarUploadResponseDto } from '../avatar/dto';
 
 @ApiTags('users')
 @Controller('users')
@@ -32,16 +32,64 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly avatarService: AvatarService,
+    private readonly logger: AppLoggerService,
   ) {}
 
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a new user (Admin only)' })
-  @ApiResponse({ status: 201, description: 'User created successfully' })
+  @ApiResponse({ status: 201, description: 'User created successfully. If no password provided, temporary password sent by email.' })
   @ApiResponse({ status: 409, description: 'Email already exists' })
-  async create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  async create(@Body() createUserDto: CreateUserDto, @CurrentUser() currentUser: any) {
+    try {
+      const result = await this.usersService.create(createUserDto, currentUser.fullname);
+      
+      this.logger.info('User created by admin', {
+        module: 'UsersController',
+        createdUserId: result.user.id,
+        createdUserEmail: result.user.email,
+        adminId: currentUser.id,
+        adminEmail: currentUser.email,
+        temporaryPasswordGenerated: !!result.temporaryPassword,
+      });
+
+      // Retourner différentes réponses selon si un mot de passe temporaire a été généré
+      if (result.temporaryPassword) {
+        return {
+          message: 'Utilisateur créé avec succès. Un mot de passe temporaire a été envoyé par email.',
+          user: {
+            id: result.user.id,
+            fullname: result.user.fullname,
+            email: result.user.email,
+            role: result.user.role,
+            isActive: result.user.isActive,
+            mustChangePassword: true,
+          },
+          temporaryPassword: result.temporaryPassword,
+          emailSent: true,
+        };
+      } else {
+        return {
+          message: 'Utilisateur créé avec succès avec le mot de passe fourni.',
+          user: {
+            id: result.user.id,
+            fullname: result.user.fullname,
+            email: result.user.email,
+            role: result.user.role,
+            isActive: result.user.isActive,
+            mustChangePassword: false,
+          },
+        };
+      }
+    } catch (createError) {
+      this.logger.error('Failed to create user', createError, {
+        module: 'UsersController',
+        createUserDto,
+        adminId: currentUser.id,
+      });
+      throw createError;
+    }
   }
 
   @Get()
@@ -56,6 +104,14 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Profile retrieved successfully' })
   async getProfile(@CurrentUser() user: any) {
     return this.usersService.findById(user.id);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get user by ID' })
+  @ApiResponse({ status: 200, description: 'User retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async findOne(@Param('id') id: string) {
+    return this.usersService.findById(id);
   }
 
   @Post('avatar')
@@ -93,6 +149,83 @@ export class UsersController {
     };
   }
 
+  @Post(':id/avatar')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
+  @UseInterceptors(FileInterceptor('avatar'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload avatar for specific user (Admin/Moderator only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Avatar uploaded successfully for user',
+    type: AvatarUploadResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid file format or size' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async uploadAvatarForUser(
+    @Param('id') userId: string,
+    @CurrentUser() currentUser: any,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<AvatarUploadResponseDto> {
+    this.logger.info('Avatar upload for user initiated by admin/moderator', {
+      module: 'UsersController',
+      method: 'uploadAvatarForUser',
+      targetUserId: userId,
+      adminId: currentUser.id,
+      adminRole: currentUser.role,
+      fileName: file?.originalname,
+      fileSize: file?.size
+    });
+
+    // Vérifier que l'utilisateur cible existe
+    const targetUser = await this.usersService.findById(userId);
+
+    // Upload du fichier
+    const avatarUrl = await this.avatarService.saveFile(file);
+
+    // Récupération de l'ancien avatar pour le supprimer
+    const oldAvatarUrl = targetUser.avatar;
+
+    // Mise à jour de l'utilisateur avec la nouvelle URL d'avatar
+    await this.usersService.update(userId, { avatar: avatarUrl });
+
+    // Suppression de l'ancien avatar s'il existe et qu'il est différent
+    if (oldAvatarUrl && oldAvatarUrl !== avatarUrl) {
+      try {
+        await this.avatarService.deleteAvatar(oldAvatarUrl);
+        this.logger.info('Old avatar deleted successfully for user', {
+          module: 'UsersController',
+          method: 'uploadAvatarForUser',
+          targetUserId: userId,
+          adminId: currentUser.id,
+          oldAvatarUrl
+        });
+      } catch (deleteError) {
+        this.logger.warn('Failed to delete old avatar for user', {
+          module: 'UsersController',
+          method: 'uploadAvatarForUser',
+          targetUserId: userId,
+          adminId: currentUser.id,
+          oldAvatarUrl,
+          error: deleteError.message
+        });
+      }
+    }
+
+    this.logger.info('Avatar uploaded successfully for user by admin/moderator', {
+      module: 'UsersController',
+      method: 'uploadAvatarForUser',
+      targetUserId: userId,
+      adminId: currentUser.id,
+      avatarUrl
+    });
+
+    return {
+      avatarUrl,
+      message: `Avatar uploaded successfully for user ${targetUser.fullname}`,
+    };
+  }
+
   @Delete('avatar')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete user avatar' })
@@ -109,14 +242,6 @@ export class UsersController {
     }
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get user by ID' })
-  @ApiResponse({ status: 200, description: 'User retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'User not found' })
-  async findOne(@Param('id') id: string) {
-    return this.usersService.findById(id);
-  }
-
   @Patch('profile')
   @UseInterceptors(FileInterceptor('avatar'))
   @ApiOperation({ summary: 'Update current user profile' })
@@ -126,12 +251,14 @@ export class UsersController {
     @Body() updateUserDto: UpdateUserDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    console.log('Données reçues dans updateProfile:', {
-      updateUserDto,
+    this.logger.info('Profile update initiated', {
+      module: 'UsersController',
+      method: 'updateProfile',
+      userId: user.id,
       hasFile: !!file,
       fileName: file?.originalname,
       fileSize: file?.size,
-      userId: user.id
+      updateFields: Object.keys(updateUserDto)
     });
     
     try {
@@ -143,17 +270,28 @@ export class UsersController {
       const updateData: Partial<UpdateUserDto> = {
         fullname: updateUserDto.fullname,
         email: updateUserDto.email,
-        age: Number(updateUserDto.age), // S'assurer que c'est un nombre
+        age: Number(updateUserDto.age),
         gender: updateUserDto.gender,
       };
       
       // Si un fichier avatar est fourni, le traiter
       if (file) {
-        console.log('Traitement du fichier avatar:', file.originalname);
+        this.logger.info('Processing avatar file', {
+          module: 'UsersController',
+          method: 'updateProfile',
+          userId: user.id,
+          fileName: file.originalname,
+          fileSize: file.size
+        });
         
         // Valider et uploader le nouvel avatar
         const avatarUrl = await this.avatarService.saveFile(file);
-        console.log('Avatar sauvegardé à l\'URL:', avatarUrl);
+        this.logger.info('Avatar saved successfully', {
+          module: 'UsersController',
+          method: 'updateProfile',
+          userId: user.id,
+          avatarUrl
+        });
         
         // Ajouter l'URL du nouvel avatar aux données à mettre à jour
         updateData.avatar = avatarUrl;
@@ -165,24 +303,53 @@ export class UsersController {
         if (oldAvatarUrl && oldAvatarUrl !== avatarUrl) {
           try {
             await this.avatarService.deleteAvatar(oldAvatarUrl);
-            console.log('Ancien avatar supprimé:', oldAvatarUrl);
+            this.logger.info('Old avatar deleted successfully', {
+              module: 'UsersController',
+              method: 'updateProfile',
+              userId: user.id,
+              oldAvatarUrl
+            });
           } catch (deleteError) {
-            console.warn('Erreur lors de la suppression de l\'ancien avatar:', deleteError);
-            // Ne pas faire échouer la requête pour cette erreur
+            this.logger.warn('Failed to delete old avatar', {
+              module: 'UsersController',
+              method: 'updateProfile',
+              userId: user.id,
+              oldAvatarUrl,
+              error: deleteError.message
+            });
           }
         }
         
-        console.log('Profil mis à jour avec avatar:', updatedUser);
+        this.logger.info('Profile updated successfully with avatar', {
+          module: 'UsersController',
+          method: 'updateProfile',
+          userId: user.id,
+          updatedFields: Object.keys(updateData)
+        });
         return updatedUser;
       } else {
         // Pas de fichier, mise à jour des données utilisateur seulement
-        console.log('Mise à jour du profil sans fichier');
+        this.logger.info('Updating profile without avatar file', {
+          module: 'UsersController',
+          method: 'updateProfile',
+          userId: user.id,
+          updateFields: Object.keys(updateData)
+        });
         const updatedUser = await this.usersService.update(user.id, updateData);
-        console.log('Profil mis à jour:', updatedUser);
+        this.logger.info('Profile updated successfully', {
+          module: 'UsersController',
+          method: 'updateProfile',
+          userId: user.id,
+          updatedFields: Object.keys(updateData)
+        });
         return updatedUser;
       }
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du profil:', error);
+      this.logger.error('Failed to update profile', error, {
+        module: 'UsersController',
+        method: 'updateProfile',
+        userId: user.id
+      });
       throw error;
     }
   }

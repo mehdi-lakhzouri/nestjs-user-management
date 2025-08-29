@@ -7,7 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
-import { RegisterDto, RegisterWithAvatarDto, LoginDto, ForgotPasswordDto, ResetPasswordDto, RefreshTokenDto, RequestOtpDto, VerifyOtpDto, LoginWithOtpDto } from './dto';
+import { RegisterDto, RegisterWithAvatarDto, ForgotPasswordDto, ResetPasswordDto, RefreshTokenDto, VerifyOtpDto, LoginWithOtpDto, ChangePasswordDto } from './dto';
 import { PasswordUtil } from '../../utils';
 import { UserRole, UserDocument } from '../../database/schemas/user.schema';
 import { AvatarService } from '../avatar/avatar.service';
@@ -15,6 +15,7 @@ import { EmailService } from '../email/email.service';
 import { PasswordResetService } from './password-reset.service';
 import { OtpService } from './otp.service';
 import { TwoFaService } from './two-fa.service';
+import { AppLoggerService } from '../../common/logger';
 
 @Injectable()
 export class AuthService {
@@ -27,12 +28,20 @@ export class AuthService {
     private passwordResetService: PasswordResetService,
     private otpService: OtpService,
     private twoFaService: TwoFaService,
+    private readonly logger: AppLoggerService,
   ) {}
 
   async register(registerDto: RegisterDto) {
     const { password, ...userData } = registerDto;
     
-    const user = await this.usersService.create(userData, password);
+    // Ajouter le mot de passe aux données utilisateur
+    const userDataWithPassword = {
+      ...userData,
+      password: password
+    };
+    
+    const result = await this.usersService.create(userDataWithPassword, 'System Registration');
+    const user = result.user;
     
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.usersService.addRefreshToken(user.id, tokens.refreshToken);
@@ -48,6 +57,7 @@ export class AuthService {
         avatar: user.avatar,
         isActive: user.isActive,
         createdAt: user.createdAt,
+        mustChangePassword: false, // Les utilisateurs qui s'inscrivent eux-mêmes n'ont pas de mot de passe temporaire
       },
       ...tokens,
     };
@@ -70,7 +80,14 @@ export class AuthService {
     };
     
     try {
-      const user = await this.usersService.create(userDataWithAvatar, password);
+      // Mettre le mot de passe dans les données utilisateur pour create()
+      const userDataWithPassword = {
+        ...userDataWithAvatar,
+        password: password
+      };
+      
+      const result = await this.usersService.create(userDataWithPassword, 'Avatar Registration');
+      const user = result.user;
       
       const tokens = await this.generateTokens(user.id, user.email, user.role);
       await this.usersService.addRefreshToken(user.id, tokens.refreshToken);
@@ -86,6 +103,7 @@ export class AuthService {
           avatar: user.avatar,
           isActive: user.isActive,
           createdAt: user.createdAt,
+          mustChangePassword: false, // Les utilisateurs qui s'inscrivent eux-mêmes n'ont pas de mot de passe temporaire
         },
         ...tokens,
       };
@@ -96,42 +114,6 @@ export class AuthService {
       }
       throw error;
     }
-  }
-
-  async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
-    
-    const user = await this.usersService.findByEmail(email, true);
-    
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('Invalid credentials or account inactive');
-    }
-
-    const isPasswordValid = await PasswordUtil.compare(password, user.password);
-    
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    await this.usersService.updateLastLogin(user.id);
-    
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.usersService.addRefreshToken(user.id, tokens.refreshToken);
-
-    return {
-      user: {
-        id: user.id,
-        fullname: user.fullname,
-        email: user.email,
-        role: user.role,
-        age: user.age,
-        gender: user.gender,
-        avatar: user.avatar,
-        isActive: user.isActive,
-        lastLogin: user.lastLogin,
-      },
-      ...tokens,
-    };
   }
 
   async refreshToken(refreshTokenDto: RefreshTokenDto) {
@@ -224,7 +206,11 @@ export class AuthService {
       }
     } catch (error) {
       // L'erreur d'email ne doit pas empêcher le reset de fonctionner
-      console.error('Failed to send password reset confirmation email:', error);
+      this.logger.warn('Failed to send password reset confirmation email', {
+        module: 'AuthService',
+        method: 'resetPassword',
+        error: error.message
+      });
     }
 
     return { message: 'Password reset successfully' };
@@ -301,6 +287,9 @@ export class AuthService {
     // OTP valide - finaliser la connexion
     await this.usersService.updateLastLogin(user.id);
     
+    // Vérifier si l'utilisateur doit changer son mot de passe
+    const mustChangePassword = await this.usersService.mustChangePassword(user.id);
+    
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.usersService.addRefreshToken(user.id, tokens.refreshToken);
 
@@ -315,72 +304,7 @@ export class AuthService {
         avatar: user.avatar,
         isActive: user.isActive,
         lastLogin: user.lastLogin,
-      },
-      ...tokens,
-    };
-  }
-
-  // ===== MÉTHODES OTP EXISTANTES (pour compatibilité) =====
-
-  async requestOtp(requestOtpDto: RequestOtpDto) {
-    const { email } = requestOtpDto;
-    
-    try {
-      const user = await this.usersService.findByEmail(email);
-      
-      if (!user || !user.isActive) {
-        // Pour des raisons de sécurité, on retourne toujours le même message
-        return { message: 'If the email exists and is active, an OTP has been sent' };
-      }
-
-      // Générer un OTP sécurisé
-      const { otp } = await this.otpService.createOtp(user.id, 'login');
-      
-      // Envoyer l'OTP par email
-      await this.emailService.sendOtpEmail(email, otp, user.fullname);
-      
-      return { message: 'If the email exists and is active, an OTP has been sent' };
-    } catch (error) {
-      console.error('Error requesting OTP:', error);
-      // En cas d'erreur, on retourne quand même le message générique
-      return { message: 'If the email exists and is active, an OTP has been sent' };
-    }
-  }
-
-  async verifyOtpAndLogin(verifyOtpDto: VerifyOtpDto) {
-    const { email, otp } = verifyOtpDto;
-    
-    const user = await this.usersService.findByEmail(email);
-    
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('Invalid credentials or account inactive');
-    }
-
-    // Valider l'OTP
-    const { isValid, error } = await this.otpService.validateOtp(user.id, otp, 'login');
-    
-    if (!isValid) {
-      throw new UnauthorizedException(error || 'Invalid OTP');
-    }
-
-    // OTP valide - mettre à jour la dernière connexion
-    await this.usersService.updateLastLogin(user.id);
-    
-    // Générer les tokens JWT
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.usersService.addRefreshToken(user.id, tokens.refreshToken);
-
-    return {
-      user: {
-        id: user.id,
-        fullname: user.fullname,
-        email: user.email,
-        role: user.role,
-        age: user.age,
-        gender: user.gender,
-        avatar: user.avatar,
-        isActive: user.isActive,
-        lastLogin: user.lastLogin,
+        mustChangePassword,
       },
       ...tokens,
     };
@@ -405,6 +329,75 @@ export class AuthService {
       refreshToken,
       tokenType: 'Bearer',
       expiresIn: this.configService.get<string>('jwt.expiresIn'),
+    };
+  }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+    const { currentPassword, newPassword, confirmPassword } = changePasswordDto;
+
+    // Vérifier que les nouveaux mots de passe correspondent
+    if (newPassword !== confirmPassword) {
+      throw new BadRequestException('Les mots de passe ne correspondent pas');
+    }
+
+    // Récupérer l'utilisateur avec son mot de passe
+    const user = await this.usersService.findByEmail(
+      (await this.usersService.findById(userId)).email, 
+      true
+    );
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    // Vérifier le mot de passe actuel
+    const isCurrentPasswordValid = await PasswordUtil.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      this.logger.warn('Failed password change attempt - incorrect current password', {
+        module: 'AuthService',
+        userId,
+        email: user.email,
+      });
+      throw new BadRequestException('Mot de passe actuel incorrect');
+    }
+
+    // Vérifier que le nouveau mot de passe est différent de l'ancien
+    const isSamePassword = await PasswordUtil.compare(newPassword, user.password);
+    if (isSamePassword) {
+      throw new BadRequestException('Le nouveau mot de passe doit être différent de l\'ancien');
+    }
+
+    // Vérifier si c'était un mot de passe temporaire avant la mise à jour
+    const wasTemporary = await this.usersService.mustChangePassword(userId);
+
+    // Mettre à jour le mot de passe
+    await this.usersService.updatePassword(userId, newPassword);
+
+    // Déconnecter de toutes les sessions pour sécurité
+    await this.usersService.clearAllRefreshTokens(userId);
+
+    // Envoyer email de confirmation
+    try {
+      await this.emailService.sendPasswordChangedEmail(user.email, user.fullname);
+    } catch (emailError) {
+      this.logger.error('Failed to send password change confirmation email', emailError, {
+        module: 'AuthService',
+        userId,
+        email: user.email,
+      });
+      // Ne pas faire échouer le changement si l'email échoue
+    }
+
+    this.logger.info('Password changed successfully', {
+      module: 'AuthService',
+      userId,
+      email: user.email,
+      wasTemporary,
+    });
+
+    return {
+      message: 'Mot de passe modifié avec succès. Toutes les sessions ont été déconnectées.',
+      requiresRelogin: true,
     };
   }
 }

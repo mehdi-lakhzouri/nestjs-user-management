@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Otp, OtpDocument } from '../../database/schemas/otp.schema';
 import { PasswordUtil } from '../../utils';
+import { AppLoggerService } from '../../common/logger';
 import * as crypto from 'crypto';
 
 export interface OtpValidationResult {
@@ -16,6 +17,7 @@ export class OtpService {
   constructor(
     @InjectModel(Otp.name)
     private otpModel: Model<OtpDocument>,
+    private readonly logger: AppLoggerService,
   ) {}
 
   /**
@@ -116,7 +118,12 @@ export class OtpService {
       };
 
     } catch (error) {
-      console.error('Error validating OTP:', error);
+      this.logger.error('Error validating OTP', error, {
+        module: 'OtpService',
+        method: 'validateOtp',
+        userId,
+        type
+      });
       return {
         isValid: false,
         error: 'OTP validation failed. Please try again.'

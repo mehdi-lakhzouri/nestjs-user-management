@@ -11,7 +11,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterDto, RegisterWithAvatarDto, LoginDto, ForgotPasswordDto, ResetPasswordDto, RefreshTokenDto, RequestOtpDto, VerifyOtpDto, LoginWithOtpDto } from './dto';
+import { RegisterDto, RegisterWithAvatarDto, ForgotPasswordDto, ResetPasswordDto, RefreshTokenDto, VerifyOtpDto, LoginWithOtpDto, ChangePasswordDto } from './dto';
 import { JwtAuthGuard } from '../../common/guards';
 import { CurrentUser } from '../../common/decorators';
 
@@ -56,15 +56,6 @@ export class AuthController {
     return this.authService.registerWithAvatar(registerDto, file);
   }
 
-  @Post('login')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login user' })
-  @ApiResponse({ status: 200, description: 'Login successful' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
-  }
-
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
@@ -82,16 +73,6 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Logout successful' })
   async logout(@CurrentUser() user: any, @Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.logout(user.id, refreshTokenDto.refreshToken);
-  }
-
-  @Post('logout-all')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Logout from all devices' })
-  @ApiResponse({ status: 200, description: 'Logout from all devices successful' })
-  async logoutAll(@CurrentUser() user: any) {
-    return this.authService.logoutAll(user.id);
   }
 
   @Post('forgot-password')
@@ -129,20 +110,15 @@ export class AuthController {
     return this.authService.verifyOtpAndCompleteLogin(verifyOtpDto);
   }
 
-  @Post('request-otp')
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request OTP for direct login (alternative to password)' })
-  @ApiResponse({ status: 200, description: 'OTP sent if email exists and is active' })
-  async requestOtp(@Body() requestOtpDto: RequestOtpDto) {
-    return this.authService.requestOtp(requestOtpDto);
-  }
-
-  @Post('verify-otp')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify OTP for direct login (legacy endpoint)' })
-  @ApiResponse({ status: 200, description: 'Login successful with valid OTP' })
-  @ApiResponse({ status: 401, description: 'Invalid OTP or credentials' })
-  async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
-    return this.authService.verifyOtpAndLogin(verifyOtpDto);
+  @ApiOperation({ summary: 'Change password (required for users with temporary passwords)' })
+  @ApiResponse({ status: 200, description: 'Password changed successfully' })
+  @ApiResponse({ status: 400, description: 'Current password incorrect or passwords do not match' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async changePassword(@CurrentUser() user: any, @Body() changePasswordDto: ChangePasswordDto) {
+    return this.authService.changePassword(user.id, changePasswordDto);
   }
 }

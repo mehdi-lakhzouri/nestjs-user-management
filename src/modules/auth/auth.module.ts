@@ -16,6 +16,7 @@ import { PasswordResetToken, PasswordResetTokenSchema } from '../../database/sch
 import { Otp, OtpSchema } from '../../database/schemas/otp.schema';
 import { TwoFaSession, TwoFaSessionSchema } from '../../database/schemas/two-fa-session.schema';
 import { getJwtConfig } from '../../config/jwt.config';
+import { AppLoggerService } from '../../common/logger';
 
 @Module({
   imports: [
@@ -34,7 +35,7 @@ import { getJwtConfig } from '../../config/jwt.config';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, PasswordResetService, OtpService, TwoFaService],
+  providers: [AuthService, JwtStrategy, PasswordResetService, OtpService, TwoFaService, AppLoggerService],
   exports: [AuthService, PasswordResetService, OtpService, TwoFaService],
 })
 export class AuthModule {}
