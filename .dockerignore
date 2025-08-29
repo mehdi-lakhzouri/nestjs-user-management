@@ -1,24 +1,74 @@
+# ================================
+# .dockerignore - Exclusion des fichiers inutiles
+# Réduit la taille de l'image et améliore la sécurité
+# ================================
+
+# Dossiers de développement
 node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-logs
-*.log
+
+# Fichiers de build locaux
 dist
 build
 coverage
-.env
+.nyc_output
+
+# Fichiers de configuration locale
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-.vscode
-.idea
-.DS_Store
-*.db
+
+# Logs
+logs
+*.log
+
+# Cache et fichiers temporaires
+.cache
 tmp
 temp
-scripts/seed.ts
-README.md
+
+# IDE et éditeurs
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Système d'exploitation
+.DS_Store
+Thumbs.db
+*.db
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation et fichiers de projet
+README*.md
+LICENSE
+CHANGELOG.md
 API_TESTS.md
 SUMMARY.md
+
+# Tests
+test
+*.test.js
+*.spec.js
+coverage
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Scripts de développement
+scripts
+start-dev.bat
+
+# Fichiers de configuration TypeScript (garder tsconfig.json pour le build)
+jest.config.js
+eslint.config.mjs

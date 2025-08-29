@@ -1,29 +1,70 @@
-version: '3.8'
+# ================================
+# Docker Compose - Orchestration des services
+# Services : Backend NestJS + MongoDB (optionnel)
+# ================================
 
 services:
-  app:
-    build: .
+  # Service principal - Backend NestJS
+  nestjs-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: user-management-api
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongo:27017/user-management
-      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-      - JWT_REFRESH_SECRET=your-super-secret-refresh-key-change-this-in-production
-    depends_on:
-      - mongo
+      # Variables d'environnement héritées du fichier .env
+      - PORT=${PORT:-3000}
+      - MONGODB_URI=${MONGODB_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - BCRYPT_ROUNDS=${BCRYPT_ROUNDS}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_SECURE=${SMTP_SECURE}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - FRONTEND_URL=${FRONTEND_URL}
     volumes:
-      - .:/app
-      - /app/node_modules
+      # Volume pour les uploads (avatars)
+      - ./uploads:/app/uploads
+    env_file:
+      - .env
+    networks:
+      - user-management-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  mongo:
-    image: mongo:6.0
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-    environment:
-      - MONGO_INITDB_DATABASE=user-management
+  # Service MongoDB (optionnel - si vous voulez une base locale au lieu d'Atlas)
+  # Décommentez si vous préférez une base de données locale
+  # mongodb:
+  #   image: mongo:7-jammy
+  #   container_name: user-management-db
+  #   ports:
+  #     - "27017:27017"
+  #   environment:
+  #     - MONGO_INITDB_ROOT_USERNAME=admin
+  #     - MONGO_INITDB_ROOT_PASSWORD=password
+  #     - MONGO_INITDB_DATABASE=user-management
+  #   volumes:
+  #     - mongodb_data:/data/db
+  #   networks:
+  #     - user-management-network
+  #   restart: unless-stopped
 
-volumes:
-  mongo_data:
+# Réseau interne pour la communication entre services
+networks:
+  user-management-network:
+    driver: bridge
+
+# Volumes persistants (décommentez si vous utilisez MongoDB local)
+# volumes:
+#   mongodb_data:

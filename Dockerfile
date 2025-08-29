@@ -1,26 +1,69 @@
-# Use Node.js LTS version
-FROM node:18-alpine
+# ================================
+# Multi-stage Dockerfile pour NestJS
+# ================================
+# Stage 1: Build du projet (optimisé avec cache)
+# Stage 2: Image de production légère
 
-# Set working directory
+# Stage 1: Build Stage
+FROM node:22-alpine AS builder
+
+# Définir le répertoire de travail
 WORKDIR /app
 
-# Copy package files
+# Copier les fichiers de configuration des dépendances
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Installer les dépendances (cache Docker intelligent)
+RUN npm ci --only=production && npm cache clean --force
 
-# Copy source code
+# Copier les dépendances de développement pour le build
+COPY package*.json ./
+RUN npm ci
+
+# Copier le code source
 COPY . .
 
-# Build the application
+# Build de l'application
 RUN npm run build
 
-# Expose port
+# Stage 2: Production Stage
+FROM node:20-alpine AS production
+
+# Créer un utilisateur non-root pour la sécurité
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001
+
+# Définir le répertoire de travail
+WORKDIR /app
+
+# Copier les fichiers de package pour les dépendances de production
+COPY package*.json ./
+
+# Installer uniquement les dépendances de production
+RUN npm ci --only=production && npm cache clean --force
+
+# Copier l'application buildée depuis le stage builder
+COPY --from=builder /app/dist ./dist
+
+# Copier le dossier uploads (si nécessaire pour les avatars)
+COPY --from=builder /app/uploads ./uploads
+
+# Copier le script d'entrypoint
+COPY entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
+# Changer le propriétaire des fichiers
+RUN chown -R nestjs:nodejs /app
+
+# Basculer vers l'utilisateur non-root
+USER nestjs
+
+# Exposer le port (défini dans .env - PORT=3000)
 EXPOSE 3000
 
-# Set environment to production
+# Variables d'environnement pour la production
 ENV NODE_ENV=production
 
-# Start the application
-CMD ["npm", "run", "start:prod"]
+# Point d'entrée de l'application
+ENTRYPOINT ["./entrypoint.sh"]
+CMD ["node", "dist/main"]
