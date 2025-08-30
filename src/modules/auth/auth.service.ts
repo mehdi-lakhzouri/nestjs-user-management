@@ -221,25 +221,38 @@ export class AuthService {
   async loginWithOtp(loginWithOtpDto: LoginWithOtpDto) {
     const { email, password } = loginWithOtpDto;
     
+    this.logger.log(`🔄 Login with OTP attempt for: ${email}`);
+    
     // Étape 1: Valider email + mot de passe
     const user = await this.usersService.findByEmail(email, true);
     
     if (!user || !user.isActive) {
+      this.logger.warn(`❌ User not found or inactive: ${email}`);
       throw new UnauthorizedException('Invalid credentials or account inactive');
     }
 
+    this.logger.log(`✅ User found: ${user.fullname}`);
+    
     const isPasswordValid = await PasswordUtil.compare(password, user.password);
     
     if (!isPasswordValid) {
+      this.logger.warn(`❌ Invalid password for: ${email}`);
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    this.logger.log(`✅ Password valid for: ${email}`);
+
     // Étape 2: Credentials valides → Créer session 2FA et envoyer OTP
+    this.logger.log(`🔄 Creating 2FA session for user: ${user.id}`);
     const { sessionToken, expiresAt } = await this.twoFaService.createTwoFaSession(user.id);
+    
+    this.logger.log(`🔄 Creating OTP for user: ${user.id}`);
     const { otp } = await this.otpService.createOtp(user.id, '2fa');
     
+    this.logger.log(`📧 About to send OTP email to: ${email}, OTP: ${otp}`);
     // Envoyer l'OTP par email
     await this.emailService.sendOtpEmail(email, otp, user.fullname);
+    this.logger.log(`✅ OTP process completed for: ${email}`);
     
     return { 
       message: 'Credentials validated. OTP sent to your email.',

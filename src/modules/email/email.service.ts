@@ -107,6 +107,8 @@ export class EmailService {
   }
 
   async sendOtpEmail(email: string, otp: string, fullname: string): Promise<void> {
+    this.logger.log(`🔄 Attempting to send OTP email to: ${email}`);
+    
     const mailOptions = {
       from: `"User Management App" <${this.configService.get<string>('SMTP_USER')}>`,
       to: email,
@@ -164,10 +166,11 @@ export class EmailService {
     };
 
     try {
+      this.logger.log(`📧 Sending OTP email to ${email} with OTP: ${otp}`);
       await this.transporter.sendMail(mailOptions);
-      this.logger.log(`OTP email sent to ${email}`);
+      this.logger.log(`✅ OTP email sent successfully to ${email}`);
     } catch (error) {
-      this.logger.error(`Failed to send OTP email to ${email}:`, error);
+      this.logger.error(`❌ Failed to send OTP email to ${email}:`, error);
       throw new Error('Failed to send OTP email');
     }
   }
