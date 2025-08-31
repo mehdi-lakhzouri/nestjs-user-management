@@ -9,9 +9,26 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterDto, RegisterWithAvatarDto, ForgotPasswordDto, ResetPasswordDto, RefreshTokenDto, VerifyOtpDto, LoginWithOtpDto, ChangePasswordDto } from './dto';
+import {
+  RegisterDto,
+  RegisterWithAvatarDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  RefreshTokenDto,
+  VerifyOtpDto,
+  LoginWithOtpDto,
+  ChangePasswordDto,
+  VerifyEmailDto,
+} from './dto';
 import { JwtAuthGuard } from '../../common/guards';
 import { CurrentUser } from '../../common/decorators';
 
@@ -38,15 +55,26 @@ export class AuthController {
       properties: {
         fullname: { type: 'string', example: 'John Doe' },
         age: { type: 'number', example: 25 },
-        gender: { type: 'string', enum: ['male', 'female', 'other'], example: 'male' },
+        gender: {
+          type: 'string',
+          enum: ['male', 'female', 'other'],
+          example: 'male',
+        },
         email: { type: 'string', example: 'john@example.com' },
         password: { type: 'string', example: 'Test123!' },
-        avatar: { type: 'string', format: 'binary', description: 'Avatar image file (JPG/PNG, max 5MB)' },
+        avatar: {
+          type: 'string',
+          format: 'binary',
+          description: 'Avatar image file (JPG/PNG, max 5MB)',
+        },
       },
       required: ['fullname', 'age', 'gender', 'email', 'password'],
     },
   })
-  @ApiResponse({ status: 201, description: 'User registered successfully with avatar' })
+  @ApiResponse({
+    status: 201,
+    description: 'User registered successfully with avatar',
+  })
   @ApiResponse({ status: 409, description: 'Email already exists' })
   @ApiResponse({ status: 400, description: 'Invalid file format or size' })
   async registerWithAvatar(
@@ -71,7 +99,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logout user' })
   @ApiResponse({ status: 200, description: 'Logout successful' })
-  async logout(@CurrentUser() user: any, @Body() refreshTokenDto: RefreshTokenDto) {
+  async logout(
+    @CurrentUser() user: any,
+    @Body() refreshTokenDto: RefreshTokenDto,
+  ) {
     return this.authService.logout(user.id, refreshTokenDto.refreshToken);
   }
 
@@ -94,18 +125,38 @@ export class AuthController {
 
   @Post('login-with-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login with email/password and receive OTP for 2FA' })
-  @ApiResponse({ status: 200, description: 'Credentials validated, OTP sent for verification' })
+  @ApiOperation({
+    summary: 'Login with email/password and receive OTP for 2FA',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Credentials validated, OTP sent for verification',
+  })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async loginWithOtp(@Body() loginWithOtpDto: LoginWithOtpDto) {
     return this.authService.loginWithOtp(loginWithOtpDto);
   }
 
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify email with OTP sent after registration' })
+  @ApiResponse({ status: 200, description: 'Email verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
+  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
+    return this.authService.verifyEmail(verifyEmailDto);
+  }
+
   @Post('verify-otp-complete-login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify OTP and complete login (works for both 2FA and direct OTP)' })
+  @ApiOperation({
+    summary:
+      'Verify OTP and complete login (works for both 2FA and direct OTP)',
+  })
   @ApiResponse({ status: 200, description: 'Login successful with valid OTP' })
-  @ApiResponse({ status: 401, description: 'Invalid OTP, session, or credentials' })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid OTP, session, or credentials',
+  })
   async verifyOtpCompleteLogin(@Body() verifyOtpDto: VerifyOtpDto) {
     return this.authService.verifyOtpAndCompleteLogin(verifyOtpDto);
   }
@@ -114,11 +165,28 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Change password (required for users with temporary passwords)' })
+  @ApiOperation({
+    summary: 'Change password (required for users with temporary passwords)',
+  })
   @ApiResponse({ status: 200, description: 'Password changed successfully' })
-  @ApiResponse({ status: 400, description: 'Current password incorrect or passwords do not match' })
+  @ApiResponse({
+    status: 400,
+    description: 'Current password incorrect or passwords do not match',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async changePassword(@CurrentUser() user: any, @Body() changePasswordDto: ChangePasswordDto) {
+  async changePassword(
+    @CurrentUser() user: any,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
     return this.authService.changePassword(user.id, changePasswordDto);
+  }
+
+  @Post('resend-verification-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend verification OTP to email' })
+  @ApiResponse({ status: 200, description: 'Verification OTP sent successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid email or user already verified' })
+  async resendVerificationOtp(@Body('email') email: string) {
+    return this.authService.resendVerificationOtp(email);
   }
 }

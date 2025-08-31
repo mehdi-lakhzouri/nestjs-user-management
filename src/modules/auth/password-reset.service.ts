@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { PasswordResetToken, PasswordResetTokenDocument } from '../../database/schemas/password-reset-token.schema';
+import {
+  PasswordResetToken,
+  PasswordResetTokenDocument,
+} from '../../database/schemas/password-reset-token.schema';
 import { PasswordUtil } from '../../utils';
 import { AppLoggerService } from '../../common/logger';
 import * as crypto from 'crypto';
@@ -14,7 +17,9 @@ export class PasswordResetService {
     private readonly logger: AppLoggerService,
   ) {}
 
-  async createResetToken(userId: string): Promise<{ token: string; hashedToken: string }> {
+  async createResetToken(
+    userId: string,
+  ): Promise<{ token: string; hashedToken: string }> {
     // Générer un token sécurisé
     const token = crypto.randomBytes(32).toString('hex');
     const hashedToken = await PasswordUtil.hash(token);
@@ -35,7 +40,11 @@ export class PasswordResetService {
     return { token, hashedToken };
   }
 
-  async validateResetToken(token: string): Promise<{ isValid: boolean; userId?: string; tokenDoc?: PasswordResetTokenDocument }> {
+  async validateResetToken(token: string): Promise<{
+    isValid: boolean;
+    userId?: string;
+    tokenDoc?: PasswordResetTokenDocument;
+  }> {
     try {
       // Récupérer tous les tokens non expirés et non utilisés
       const tokens = await this.passwordResetTokenModel.find({
@@ -59,7 +68,7 @@ export class PasswordResetService {
     } catch (error) {
       this.logger.error('Error validating reset token', error, {
         module: 'PasswordResetService',
-        method: 'validateResetToken'
+        method: 'validateResetToken',
       });
       return { isValid: false };
     }
@@ -73,10 +82,7 @@ export class PasswordResetService {
 
   async cleanupExpiredTokens(): Promise<void> {
     await this.passwordResetTokenModel.deleteMany({
-      $or: [
-        { expiresAt: { $lt: new Date() } },
-        { used: true },
-      ],
+      $or: [{ expiresAt: { $lt: new Date() } }, { used: true }],
     });
   }
 }

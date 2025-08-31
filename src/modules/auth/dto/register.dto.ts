@@ -1,4 +1,14 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsEnum, IsNumber, Min, Max, IsOptional } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  IsEnum,
+  IsNumber,
+  Min,
+  Max,
+  IsOptional,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Gender } from '../../../database/schemas/user.schema';
 

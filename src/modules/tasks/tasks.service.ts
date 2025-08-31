@@ -19,9 +19,14 @@ export class TasksService {
     this.logger.log('Running cleanup of expired password reset tokens...');
     try {
       await this.passwordResetService.cleanupExpiredTokens();
-      this.logger.log('Cleanup of expired password reset tokens completed successfully');
+      this.logger.log(
+        'Cleanup of expired password reset tokens completed successfully',
+      );
     } catch (error) {
-      this.logger.error('Failed to cleanup expired password reset tokens:', error);
+      this.logger.error(
+        'Failed to cleanup expired password reset tokens:',
+        error,
+      );
     }
   }
 

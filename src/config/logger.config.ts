@@ -12,8 +12,7 @@ export interface LoggerConfig {
 
 export const getLoggerConfig = (configService: ConfigService): LoggerConfig => {
   const environment = configService.get<string>('NODE_ENV', 'development');
-  
-  
+
   const defaultConfig: LoggerConfig = {
     level: 'info',
     enableConsole: true,
@@ -21,7 +20,7 @@ export const getLoggerConfig = (configService: ConfigService): LoggerConfig => {
     logDirectory: './logs',
     maxFileSize: '10m',
     maxFiles: 5,
-    format: 'json'
+    format: 'json',
   };
 
   // Configuration pour la production
@@ -33,7 +32,7 @@ export const getLoggerConfig = (configService: ConfigService): LoggerConfig => {
       logDirectory: '/var/log/user-management',
       maxFileSize: '50m',
       maxFiles: 10,
-      format: 'json'
+      format: 'json',
     };
   }
 
@@ -46,7 +45,7 @@ export const getLoggerConfig = (configService: ConfigService): LoggerConfig => {
       logDirectory: './test-logs',
       maxFileSize: '5m',
       maxFiles: 2,
-      format: 'json'
+      format: 'json',
     };
   }
 

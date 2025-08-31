@@ -1,4 +1,10 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+  BadRequestException,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { MulterModuleOptions } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -12,7 +18,7 @@ export class AvatarUploadInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
-    
+
     // Validation du fichier avant traitement
     if (request.file) {
       this.validateFile(request.file);
@@ -48,14 +54,16 @@ export const multerAvatarConfig: MulterModuleOptions = {
   },
   fileFilter: (req, file, callback) => {
     const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    
+
     if (!allowedMimeTypes.includes(file.mimetype)) {
       return callback(
-        new BadRequestException('Type de fichier non autorisé. Seuls les formats JPG et PNG sont acceptés'),
+        new BadRequestException(
+          'Type de fichier non autorisé. Seuls les formats JPG et PNG sont acceptés',
+        ),
         false,
       );
     }
-    
+
     callback(null, true);
   },
 };

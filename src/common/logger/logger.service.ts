@@ -27,7 +27,7 @@ export class AppLoggerService implements LoggerService {
     level: 'info' | 'warn' | 'error' | 'debug',
     message: string,
     context?: LogContext,
-    error?: Error
+    error?: Error,
   ): string {
     const log: StructuredLog = {
       level,
@@ -57,7 +57,9 @@ export class AppLoggerService implements LoggerService {
   }
 
   error(message: string, error?: Error, context?: LogContext): void {
-    process.stderr.write(this.formatLog('error', message, context, error) + '\n');
+    process.stderr.write(
+      this.formatLog('error', message, context, error) + '\n',
+    );
   }
 
   debug(message: string, context?: LogContext): void {
@@ -76,7 +78,12 @@ export class AppLoggerService implements LoggerService {
   }
 
   // Méthodes utilitaires pour des logs métier
-  logUserAction(action: string, userId: string, module: string, details?: any): void {
+  logUserAction(
+    action: string,
+    userId: string,
+    module: string,
+    details?: any,
+  ): void {
     this.info(`User action: ${action}`, {
       module,
       userId,
@@ -85,7 +92,13 @@ export class AppLoggerService implements LoggerService {
     });
   }
 
-  logAPICall(method: string, endpoint: string, statusCode: number, duration: number, module: string): void {
+  logAPICall(
+    method: string,
+    endpoint: string,
+    statusCode: number,
+    duration: number,
+    module: string,
+  ): void {
     this.info(`API Call completed`, {
       module,
       method,
@@ -95,7 +108,12 @@ export class AppLoggerService implements LoggerService {
     });
   }
 
-  logDatabaseOperation(operation: string, collection: string, module: string, details?: any): void {
+  logDatabaseOperation(
+    operation: string,
+    collection: string,
+    module: string,
+    details?: any,
+  ): void {
     this.info(`Database operation: ${operation}`, {
       module,
       operation,
@@ -104,10 +122,17 @@ export class AppLoggerService implements LoggerService {
     });
   }
 
-  logEmailSent(to: string, subject: string, module: string, success: boolean): void {
+  logEmailSent(
+    to: string,
+    subject: string,
+    module: string,
+    success: boolean,
+  ): void {
     const level = success ? 'info' : 'warn';
-    const message = success ? 'Email sent successfully' : 'Email sending failed';
-    
+    const message = success
+      ? 'Email sent successfully'
+      : 'Email sending failed';
+
     if (success) {
       this.info(message, { module, to, subject, emailSent: true });
     } else {
@@ -115,10 +140,16 @@ export class AppLoggerService implements LoggerService {
     }
   }
 
-  logAuthEvent(event: string, email: string, module: string, success: boolean, details?: any): void {
+  logAuthEvent(
+    event: string,
+    email: string,
+    module: string,
+    success: boolean,
+    details?: any,
+  ): void {
     const level = success ? 'info' : 'warn';
     const message = `Authentication event: ${event}`;
-    
+
     if (success) {
       this.info(message, { module, event, email, success, details });
     } else {

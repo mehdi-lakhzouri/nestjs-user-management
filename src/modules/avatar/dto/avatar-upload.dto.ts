@@ -12,7 +12,8 @@ export class AvatarUploadDto {
 export class AvatarUploadResponseDto {
   @ApiProperty({
     description: 'URL of the uploaded avatar',
-    example: '/uploads/avatars/avatar_123e4567-e89b-12d3-a456-426614174000_1640995200000.jpg',
+    example:
+      '/uploads/avatars/avatar_123e4567-e89b-12d3-a456-426614174000_1640995200000.jpg',
   })
   avatarUrl: string;
 

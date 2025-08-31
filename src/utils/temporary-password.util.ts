@@ -16,20 +16,20 @@ export function generateTemporaryPassword(): string {
   const symbols = '!@#$%&*+-=?';
 
   const allChars = uppercase + lowercase + numbers + symbols;
-  
+
   let password = '';
-  
+
   // Assurer au moins un caractère de chaque type
   password += getRandomChar(uppercase);
   password += getRandomChar(lowercase);
   password += getRandomChar(numbers);
   password += getRandomChar(symbols);
-  
+
   // Compléter avec des caractères aléatoires
   for (let i = 4; i < 12; i++) {
     password += getRandomChar(allChars);
   }
-  
+
   // Mélanger le mot de passe pour éviter un pattern prévisible
   return shuffleString(password);
 }
@@ -58,11 +58,11 @@ function shuffleString(str: string): string {
  */
 export function validateTemporaryPassword(password: string): boolean {
   if (password.length < 8) return false;
-  
+
   const hasUppercase = /[A-Z]/.test(password);
   const hasLowercase = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
   const hasSymbol = /[!@#$%&*+\-=?]/.test(password);
-  
+
   return hasUppercase && hasLowercase && hasNumber && hasSymbol;
 }

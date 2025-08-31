@@ -35,8 +35,13 @@ export class EmailService {
     });
   }
 
-  async sendPasswordResetEmail(email: string, token: string, fullname: string): Promise<void> {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+  async sendPasswordResetEmail(
+    email: string,
+    token: string,
+    fullname: string,
+  ): Promise<void> {
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
 
     const mailOptions = {
@@ -101,14 +106,21 @@ export class EmailService {
       await this.transporter.sendMail(mailOptions);
       this.logger.log(`Password reset email sent to ${email}`);
     } catch (error) {
-      this.logger.error(`Failed to send password reset email to ${email}:`, error);
+      this.logger.error(
+        `Failed to send password reset email to ${email}:`,
+        error,
+      );
       throw new Error('Failed to send reset email');
     }
   }
 
-  async sendOtpEmail(email: string, otp: string, fullname: string): Promise<void> {
+  async sendOtpEmail(
+    email: string,
+    otp: string,
+    fullname: string,
+  ): Promise<void> {
     this.logger.log(`🔄 Attempting to send OTP email to: ${email}`);
-    
+
     const mailOptions = {
       from: `"User Management App" <${this.configService.get<string>('SMTP_USER')}>`,
       to: email,
@@ -175,7 +187,10 @@ export class EmailService {
     }
   }
 
-  async sendPasswordChangedEmail(email: string, fullname: string): Promise<void> {
+  async sendPasswordChangedEmail(
+    email: string,
+    fullname: string,
+  ): Promise<void> {
     const mailOptions = {
       from: `"User Management App" <${this.configService.get<string>('SMTP_USER')}>`,
       to: email,
@@ -232,18 +247,22 @@ export class EmailService {
       await this.transporter.sendMail(mailOptions);
       this.logger.log(`Password changed confirmation email sent to ${email}`);
     } catch (error) {
-      this.logger.error(`Failed to send password changed email to ${email}:`, error);
+      this.logger.error(
+        `Failed to send password changed email to ${email}:`,
+        error,
+      );
       // Ne pas faire échouer la réinitialisation si l'email de confirmation échoue
     }
   }
 
   async sendTemporaryPasswordEmail(
-    email: string, 
-    fullname: string, 
+    email: string,
+    fullname: string,
     temporaryPassword: string,
-    createdByAdmin: string
+    createdByAdmin: string,
   ): Promise<void> {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
     const loginUrl = `${frontendUrl}/login`;
 
     const mailOptions = {
@@ -311,8 +330,13 @@ export class EmailService {
       await this.transporter.sendMail(mailOptions);
       this.logger.log(`Temporary password email sent to ${email}`);
     } catch (error) {
-      this.logger.error(`Failed to send temporary password email to ${email}:`, error);
-      throw new Error('Échec de l\'envoi de l\'email avec le mot de passe temporaire');
+      this.logger.error(
+        `Failed to send temporary password email to ${email}:`,
+        error,
+      );
+      throw new Error(
+        "Échec de l'envoi de l'email avec le mot de passe temporaire",
+      );
     }
   }
 }

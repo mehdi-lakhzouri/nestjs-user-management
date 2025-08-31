@@ -12,9 +12,15 @@ import { EmailModule } from '../email/email.module';
 import { PasswordResetService } from './password-reset.service';
 import { OtpService } from './otp.service';
 import { TwoFaService } from './two-fa.service';
-import { PasswordResetToken, PasswordResetTokenSchema } from '../../database/schemas/password-reset-token.schema';
+import {
+  PasswordResetToken,
+  PasswordResetTokenSchema,
+} from '../../database/schemas/password-reset-token.schema';
 import { Otp, OtpSchema } from '../../database/schemas/otp.schema';
-import { TwoFaSession, TwoFaSessionSchema } from '../../database/schemas/two-fa-session.schema';
+import {
+  TwoFaSession,
+  TwoFaSessionSchema,
+} from '../../database/schemas/two-fa-session.schema';
 import { getJwtConfig } from '../../config/jwt.config';
 import { AppLoggerService } from '../../common/logger';
 
@@ -35,7 +41,14 @@ import { AppLoggerService } from '../../common/logger';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, PasswordResetService, OtpService, TwoFaService, AppLoggerService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    PasswordResetService,
+    OtpService,
+    TwoFaService,
+    AppLoggerService,
+  ],
   exports: [AuthService, PasswordResetService, OtpService, TwoFaService],
 })
 export class AuthModule {}

@@ -50,7 +50,9 @@ async function bootstrap() {
   // Swagger documentation
   const config = new DocumentBuilder()
     .setTitle('User Management API')
-    .setDescription('Professional backend API for user management with authentication')
+    .setDescription(
+      'Professional backend API for user management with authentication',
+    )
     .setVersion('1.0')
     .addBearerAuth()
     .build();

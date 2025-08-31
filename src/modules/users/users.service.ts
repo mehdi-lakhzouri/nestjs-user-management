@@ -20,22 +20,27 @@ export class UsersService {
     private readonly logger: AppLoggerService,
   ) {}
 
-  async create(createUserDto: CreateUserDto, createdByAdminName?: string): Promise<{ user: UserDocument; temporaryPassword?: string }> {
-    const existingUser = await this.userModel.findOne({ email: createUserDto.email });
-    
+  async create(
+    createUserDto: CreateUserDto,
+    createdByAdminName?: string,
+  ): Promise<{ user: UserDocument; temporaryPassword?: string }> {
+    const existingUser = await this.userModel.findOne({
+      email: createUserDto.email,
+    });
+
     if (existingUser) {
       throw new ConflictException('Email already exists');
     }
 
     const userData: any = { ...createUserDto };
     let temporaryPassword: string | undefined;
-    
+
     // Si aucun mot de passe n'est fourni, générer un mot de passe temporaire
     if (!createUserDto.password) {
       temporaryPassword = generateTemporaryPassword();
       userData.password = await PasswordUtil.hash(temporaryPassword);
       userData.mustChangePassword = true;
-      
+
       this.logger.info('Temporary password generated for new user', {
         module: 'UsersService',
         email: createUserDto.email,
@@ -48,7 +53,7 @@ export class UsersService {
 
     const user = new this.userModel(userData);
     const savedUser = await user.save();
-    
+
     // Envoyer l'email avec le mot de passe temporaire si généré
     if (temporaryPassword && createdByAdminName) {
       try {
@@ -56,32 +61,41 @@ export class UsersService {
           createUserDto.email,
           createUserDto.fullname,
           temporaryPassword,
-          createdByAdminName
+          createdByAdminName,
         );
-        
+
         this.logger.info('Temporary password email sent successfully', {
           module: 'UsersService',
           email: createUserDto.email,
           createdBy: createdByAdminName,
         });
       } catch (emailError) {
-        this.logger.error('Failed to send temporary password email', emailError, {
-          module: 'UsersService',
-          email: createUserDto.email,
-        });
-        
+        this.logger.error(
+          'Failed to send temporary password email',
+          emailError,
+          {
+            module: 'UsersService',
+            email: createUserDto.email,
+          },
+        );
+
         // Ne pas faire échouer la création si l'email échoue
         // L'admin peut toujours récupérer le mot de passe temporaire
       }
     }
 
-    return { 
-      user: savedUser, 
-      temporaryPassword: temporaryPassword 
+    return {
+      user: savedUser,
+      temporaryPassword: temporaryPassword,
     };
   }
 
-  async findAll(queryDto: QueryUsersDto): Promise<{ users: UserDocument[]; total: number; page: number; limit: number }> {
+  async findAll(queryDto: QueryUsersDto): Promise<{
+    users: UserDocument[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const { page = 1, limit = 10, search, gender, role, isActive } = queryDto;
     const skip = (page - 1) * limit;
 
@@ -104,7 +118,11 @@ export class UsersService {
     }
 
     const [users, total] = await Promise.all([
-      this.userModel.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
+      this.userModel
+        .find(filter)
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 }),
       this.userModel.countDocuments(filter),
     ]);
 
@@ -118,7 +136,7 @@ export class UsersService {
 
   async findById(id: string): Promise<UserDocument> {
     const user = await this.userModel.findById(id);
-    
+
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -126,9 +144,12 @@ export class UsersService {
     return user;
   }
 
-  async findByEmail(email: string, includePassword = false): Promise<UserDocument | null> {
+  async findByEmail(
+    email: string,
+    includePassword = false,
+  ): Promise<UserDocument | null> {
     const query = this.userModel.findOne({ email });
-    
+
     if (includePassword) {
       query.select('+password +refreshTokens');
     }
@@ -136,12 +157,14 @@ export class UsersService {
     return query.exec();
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<UserDocument> {
-    const user = await this.userModel.findByIdAndUpdate(
-      id,
-      updateUserDto,
-      { new: true, runValidators: true },
-    );
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+  ): Promise<UserDocument> {
+    const user = await this.userModel.findByIdAndUpdate(id, updateUserDto, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -152,7 +175,7 @@ export class UsersService {
 
   async remove(id: string): Promise<void> {
     const result = await this.userModel.findByIdAndDelete(id);
-    
+
     if (!result) {
       throw new NotFoundException('User not found');
     }
@@ -168,7 +191,10 @@ export class UsersService {
     });
   }
 
-  async removeRefreshToken(userId: string, refreshToken: string): Promise<void> {
+  async removeRefreshToken(
+    userId: string,
+    refreshToken: string,
+  ): Promise<void> {
     await this.userModel.findByIdAndUpdate(userId, {
       $pull: { refreshTokens: refreshToken },
     });
@@ -182,7 +208,7 @@ export class UsersService {
 
   async updatePassword(userId: string, newPassword: string): Promise<void> {
     const hashedPassword = await PasswordUtil.hash(newPassword);
-    
+
     await this.userModel.findByIdAndUpdate(userId, {
       password: hashedPassword,
       mustChangePassword: false, // L'utilisateur a changé son mot de passe
@@ -190,13 +216,21 @@ export class UsersService {
   }
 
   async mustChangePassword(userId: string): Promise<boolean> {
-    const user = await this.userModel.findById(userId).select('+mustChangePassword');
+    const user = await this.userModel
+      .findById(userId)
+      .select('+mustChangePassword');
     return user?.mustChangePassword || false;
   }
 
   async markPasswordChanged(userId: string): Promise<void> {
     await this.userModel.findByIdAndUpdate(userId, {
       mustChangePassword: false,
+    });
+  }
+
+  async markEmailAsVerified(userId: string): Promise<void> {
+    await this.userModel.findByIdAndUpdate(userId, {
+      isEmailVerified: true,
     });
   }
 }

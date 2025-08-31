@@ -7,7 +7,17 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
-import { RegisterDto, RegisterWithAvatarDto, ForgotPasswordDto, ResetPasswordDto, RefreshTokenDto, VerifyOtpDto, LoginWithOtpDto, ChangePasswordDto } from './dto';
+import {
+  RegisterDto,
+  RegisterWithAvatarDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  RefreshTokenDto,
+  VerifyOtpDto,
+  LoginWithOtpDto,
+  ChangePasswordDto,
+} from './dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { PasswordUtil } from '../../utils';
 import { UserRole, UserDocument } from '../../database/schemas/user.schema';
 import { AvatarService } from '../avatar/avatar.service';
@@ -33,20 +43,30 @@ export class AuthService {
 
   async register(registerDto: RegisterDto) {
     const { password, ...userData } = registerDto;
-    
+
     // Ajouter le mot de passe aux données utilisateur
     const userDataWithPassword = {
       ...userData,
-      password: password
+      password: password,
     };
-    
-    const result = await this.usersService.create(userDataWithPassword, 'System Registration');
-    const user = result.user;
-    
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.usersService.addRefreshToken(user.id, tokens.refreshToken);
 
+    const result = await this.usersService.create(
+      userDataWithPassword,
+      'System Registration',
+    );
+    const user = result.user;
+
+    // ✅ AJOUT : Générer et envoyer OTP pour vérification email
+    this.logger.log(`🔄 Generating OTP for email verification for user: ${user.email}`);
+    const { otp } = await this.otpService.createOtp(user.id, 'login');
+    
+    this.logger.log(`📧 Sending verification OTP to: ${user.email}`);
+    await this.emailService.sendOtpEmail(user.email, otp, user.fullname);
+    this.logger.log(`✅ Verification OTP sent successfully to: ${user.email}`);
+
+    // Ne pas générer les tokens JWT immédiatement - attendre la vérification email
     return {
+      message: 'Registration successful. Please check your email for verification code.',
       user: {
         id: user.id,
         fullname: user.fullname,
@@ -57,42 +77,55 @@ export class AuthService {
         avatar: user.avatar,
         isActive: user.isActive,
         createdAt: user.createdAt,
-        mustChangePassword: false, // Les utilisateurs qui s'inscrivent eux-mêmes n'ont pas de mot de passe temporaire
+        emailVerified: false,
       },
-      ...tokens,
+      requiresEmailVerification: true,
     };
   }
 
-  async registerWithAvatar(registerDto: RegisterWithAvatarDto, file?: Express.Multer.File) {
+    async registerWithAvatar(
+    registerDto: RegisterWithAvatarDto,
+    file?: Express.Multer.File,
+  ) {
     const { password, ...userData } = registerDto;
-    
+
     let avatarUrl: string | undefined = undefined;
-    
+
     // Si un fichier avatar est fourni, l'uploader
     if (file) {
       avatarUrl = await this.avatarService.saveFile(file);
     }
-    
-    // Créer l'utilisateur avec l'URL de l'avatar
+
+    // Cr�er l'utilisateur avec l'URL de l'avatar
     const userDataWithAvatar = {
       ...userData,
       avatar: avatarUrl,
     };
-    
+
     try {
-      // Mettre le mot de passe dans les données utilisateur pour create()
+      // Mettre le mot de passe dans les donn�es utilisateur pour create()
       const userDataWithPassword = {
         ...userDataWithAvatar,
-        password: password
+        password: password,
       };
-      
-      const result = await this.usersService.create(userDataWithPassword, 'Avatar Registration');
-      const user = result.user;
-      
-      const tokens = await this.generateTokens(user.id, user.email, user.role);
-      await this.usersService.addRefreshToken(user.id, tokens.refreshToken);
 
+      const result = await this.usersService.create(
+        userDataWithPassword,
+        'Avatar Registration',
+      );
+      const user = result.user;
+
+      //  MODIFICATION : G�n�rer et envoyer OTP au lieu de connecter directement
+      this.logger.log(` Generating OTP for email verification for user: ${user.email}`);
+      const { otp } = await this.otpService.createOtp(user.id, 'login');
+
+      this.logger.log(` Sending verification OTP to: ${user.email}`);
+      await this.emailService.sendOtpEmail(user.email, otp, user.fullname);
+      this.logger.log(` Verification OTP sent successfully to: ${user.email}`);
+
+      // Ne pas g�n�rer les tokens JWT imm�diatement - attendre la v�rification email
       return {
+        message: 'Registration successful. Please check your email for verification code.',
         user: {
           id: user.id,
           fullname: user.fullname,
@@ -103,12 +136,12 @@ export class AuthService {
           avatar: user.avatar,
           isActive: user.isActive,
           createdAt: user.createdAt,
-          mustChangePassword: false, // Les utilisateurs qui s'inscrivent eux-mêmes n'ont pas de mot de passe temporaire
+          emailVerified: false,
         },
-        ...tokens,
+        requiresEmailVerification: true,
       };
     } catch (error) {
-      // En cas d'erreur lors de la création de l'utilisateur, supprimer l'avatar uploadé
+      // En cas d'erreur lors de la cr�ation de l'utilisateur, supprimer l'avatar upload�
       if (avatarUrl) {
         await this.avatarService.deleteAvatar(avatarUrl);
       }
@@ -116,23 +149,30 @@ export class AuthService {
     }
   }
 
+
   async refreshToken(refreshTokenDto: RefreshTokenDto) {
     const { refreshToken } = refreshTokenDto;
-    
+
     try {
       const payload = this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('jwt.refreshSecret'),
       });
 
       const user = await this.usersService.findById(payload.sub);
-      
+
       if (!user || !user.isActive) {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
       // Verify refresh token exists in user's tokens
-      const userWithTokens = await this.usersService.findByEmail(user.email, true);
-      if (!userWithTokens || !userWithTokens.refreshTokens.includes(refreshToken)) {
+      const userWithTokens = await this.usersService.findByEmail(
+        user.email,
+        true,
+      );
+      if (
+        !userWithTokens ||
+        !userWithTokens.refreshTokens.includes(refreshToken)
+      ) {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
@@ -159,18 +199,24 @@ export class AuthService {
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
     const { email } = forgotPasswordDto;
-    
+
     try {
       const user = await this.usersService.findByEmail(email);
-      
+
       if (user) {
         // Générer un token de reset sécurisé
-        const { token } = await this.passwordResetService.createResetToken(user.id);
-        
+        const { token } = await this.passwordResetService.createResetToken(
+          user.id,
+        );
+
         // Envoyer l'email de reset avec le token
-        await this.emailService.sendPasswordResetEmail(email, token, user.fullname);
+        await this.emailService.sendPasswordResetEmail(
+          email,
+          token,
+          user.fullname,
+        );
       }
-      
+
       // Toujours retourner le même message pour des raisons de sécurité
       return { message: 'If the email exists, a reset link has been sent' };
     } catch (error) {
@@ -181,10 +227,11 @@ export class AuthService {
 
   async resetPassword(resetPasswordDto: ResetPasswordDto) {
     const { token, password } = resetPasswordDto;
-    
+
     // Valider le token avec le nouveau système
-    const { isValid, userId, tokenDoc } = await this.passwordResetService.validateResetToken(token);
-    
+    const { isValid, userId, tokenDoc } =
+      await this.passwordResetService.validateResetToken(token);
+
     if (!isValid || !userId || !tokenDoc) {
       throw new BadRequestException('Invalid or expired reset token');
     }
@@ -194,7 +241,7 @@ export class AuthService {
 
     // Mettre à jour le mot de passe
     await this.usersService.updatePassword(userId, password);
-    
+
     // Effacer tous les refresh tokens lors du reset password
     await this.usersService.clearAllRefreshTokens(userId);
 
@@ -202,14 +249,17 @@ export class AuthService {
     try {
       const user = await this.usersService.findById(userId);
       if (user) {
-        await this.emailService.sendPasswordChangedEmail(user.email, user.fullname);
+        await this.emailService.sendPasswordChangedEmail(
+          user.email,
+          user.fullname,
+        );
       }
     } catch (error) {
       // L'erreur d'email ne doit pas empêcher le reset de fonctionner
       this.logger.warn('Failed to send password reset confirmation email', {
         module: 'AuthService',
         method: 'resetPassword',
-        error: error.message
+        error: error.message,
       });
     }
 
@@ -220,21 +270,23 @@ export class AuthService {
 
   async loginWithOtp(loginWithOtpDto: LoginWithOtpDto) {
     const { email, password } = loginWithOtpDto;
-    
+
     this.logger.log(`🔄 Login with OTP attempt for: ${email}`);
-    
+
     // Étape 1: Valider email + mot de passe
     const user = await this.usersService.findByEmail(email, true);
-    
+
     if (!user || !user.isActive) {
       this.logger.warn(`❌ User not found or inactive: ${email}`);
-      throw new UnauthorizedException('Invalid credentials or account inactive');
+      throw new UnauthorizedException(
+        'Invalid credentials or account inactive',
+      );
     }
 
     this.logger.log(`✅ User found: ${user.fullname}`);
-    
+
     const isPasswordValid = await PasswordUtil.compare(password, user.password);
-    
+
     if (!isPasswordValid) {
       this.logger.warn(`❌ Invalid password for: ${email}`);
       throw new UnauthorizedException('Invalid credentials');
@@ -244,44 +296,54 @@ export class AuthService {
 
     // Étape 2: Credentials valides → Créer session 2FA et envoyer OTP
     this.logger.log(`🔄 Creating 2FA session for user: ${user.id}`);
-    const { sessionToken, expiresAt } = await this.twoFaService.createTwoFaSession(user.id);
-    
+    const { sessionToken, expiresAt } =
+      await this.twoFaService.createTwoFaSession(user.id);
+
     this.logger.log(`🔄 Creating OTP for user: ${user.id}`);
     const { otp } = await this.otpService.createOtp(user.id, '2fa');
-    
+
     this.logger.log(`📧 About to send OTP email to: ${email}, OTP: ${otp}`);
     // Envoyer l'OTP par email
     await this.emailService.sendOtpEmail(email, otp, user.fullname);
     this.logger.log(`✅ OTP process completed for: ${email}`);
-    
-    return { 
+
+    return {
       message: 'Credentials validated. OTP sent to your email.',
       sessionToken,
       expiresAt: expiresAt.toISOString(),
-      requiresOtp: true
+      requiresOtp: true,
     };
   }
 
   async verifyOtpAndCompleteLogin(verifyOtpDto: VerifyOtpDto) {
     const { email, otp, sessionToken } = verifyOtpDto;
-    
+
     const user = await this.usersService.findByEmail(email);
-    
+
     if (!user || !user.isActive) {
-      throw new UnauthorizedException('Invalid credentials or account inactive');
+      throw new UnauthorizedException(
+        'Invalid credentials or account inactive',
+      );
     }
 
     // Si c'est un flow 2FA, valider la session
     if (sessionToken) {
-      const { isValid, userId, sessionDoc } = await this.twoFaService.validateTwoFaSession(sessionToken);
-      
+      const { isValid, userId, sessionDoc } =
+        await this.twoFaService.validateTwoFaSession(sessionToken);
+
       if (!isValid || userId !== user.id || !sessionDoc) {
-        throw new UnauthorizedException('Invalid or expired session. Please start login again.');
+        throw new UnauthorizedException(
+          'Invalid or expired session. Please start login again.',
+        );
       }
 
       // Valider l'OTP pour 2FA
-      const { isValid: otpValid, error } = await this.otpService.validateOtp(user.id, otp, '2fa');
-      
+      const { isValid: otpValid, error } = await this.otpService.validateOtp(
+        user.id,
+        otp,
+        '2fa',
+      );
+
       if (!otpValid) {
         throw new UnauthorizedException(error || 'Invalid OTP');
       }
@@ -290,8 +352,12 @@ export class AuthService {
       await this.twoFaService.markSessionAsUsed(sessionDoc);
     } else {
       // Flow OTP direct (sans mot de passe) - maintenir la compatibilité
-      const { isValid, error } = await this.otpService.validateOtp(user.id, otp, 'login');
-      
+      const { isValid, error } = await this.otpService.validateOtp(
+        user.id,
+        otp,
+        'login',
+      );
+
       if (!isValid) {
         throw new UnauthorizedException(error || 'Invalid OTP');
       }
@@ -299,10 +365,12 @@ export class AuthService {
 
     // OTP valide - finaliser la connexion
     await this.usersService.updateLastLogin(user.id);
-    
+
     // Vérifier si l'utilisateur doit changer son mot de passe
-    const mustChangePassword = await this.usersService.mustChangePassword(user.id);
-    
+    const mustChangePassword = await this.usersService.mustChangePassword(
+      user.id,
+    );
+
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.usersService.addRefreshToken(user.id, tokens.refreshToken);
 
@@ -320,6 +388,82 @@ export class AuthService {
         mustChangePassword,
       },
       ...tokens,
+    };
+  }
+
+  /**
+   * Verify email using an OTP code (used after registration email verification flow)
+   */
+  async verifyEmail(verifyEmailDto: VerifyEmailDto) {
+    const { email, otp } = verifyEmailDto;
+
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new BadRequestException('Invalid email or OTP');
+    }
+
+    // Validate OTP for this user and type 'login' or 'password-reset' depending on implementation
+    const { isValid, error } = await this.otpService.validateOtp(
+      user.id,
+      otp,
+      'login',
+    );
+
+    if (!isValid) {
+      throw new BadRequestException(error || 'Invalid or expired OTP');
+    }
+
+    // Mark user email as verified
+    await this.usersService.markEmailAsVerified(user.id);
+
+    // ✅ AJOUT : Générer les tokens JWT après vérification réussie
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    await this.usersService.addRefreshToken(user.id, tokens.refreshToken);
+
+    return { 
+      message: 'Email vérifié avec succès', 
+      success: true,
+      user: {
+        id: user.id,
+        fullname: user.fullname,
+        email: user.email,
+        role: user.role,
+        age: user.age,
+        gender: user.gender,
+        avatar: user.avatar,
+        isActive: user.isActive,
+        emailVerified: true,
+        mustChangePassword: false,
+      },
+      ...tokens,
+    };
+  }
+
+  /**
+   * Resend verification OTP to user's email
+   */
+  async resendVerificationOtp(email: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Check if user is already verified
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    // Generate and send new OTP
+    this.logger.log(`🔄 Resending verification OTP for user: ${email}`);
+    const { otp } = await this.otpService.createOtp(user.id, 'login');
+    
+    this.logger.log(`📧 Resending verification OTP to: ${email}`);
+    await this.emailService.sendOtpEmail(email, otp, user.fullname);
+    this.logger.log(`✅ Verification OTP resent successfully to: ${email}`);
+
+    return {
+      message: 'Verification code sent to your email',
+      success: true
     };
   }
 
@@ -355,8 +499,8 @@ export class AuthService {
 
     // Récupérer l'utilisateur avec son mot de passe
     const user = await this.usersService.findByEmail(
-      (await this.usersService.findById(userId)).email, 
-      true
+      (await this.usersService.findById(userId)).email,
+      true,
     );
 
     if (!user) {
@@ -364,20 +508,31 @@ export class AuthService {
     }
 
     // Vérifier le mot de passe actuel
-    const isCurrentPasswordValid = await PasswordUtil.compare(currentPassword, user.password);
+    const isCurrentPasswordValid = await PasswordUtil.compare(
+      currentPassword,
+      user.password,
+    );
     if (!isCurrentPasswordValid) {
-      this.logger.warn('Failed password change attempt - incorrect current password', {
-        module: 'AuthService',
-        userId,
-        email: user.email,
-      });
+      this.logger.warn(
+        'Failed password change attempt - incorrect current password',
+        {
+          module: 'AuthService',
+          userId,
+          email: user.email,
+        },
+      );
       throw new BadRequestException('Mot de passe actuel incorrect');
     }
 
     // Vérifier que le nouveau mot de passe est différent de l'ancien
-    const isSamePassword = await PasswordUtil.compare(newPassword, user.password);
+    const isSamePassword = await PasswordUtil.compare(
+      newPassword,
+      user.password,
+    );
     if (isSamePassword) {
-      throw new BadRequestException('Le nouveau mot de passe doit être différent de l\'ancien');
+      throw new BadRequestException(
+        "Le nouveau mot de passe doit être différent de l'ancien",
+      );
     }
 
     // Vérifier si c'était un mot de passe temporaire avant la mise à jour
@@ -391,13 +546,20 @@ export class AuthService {
 
     // Envoyer email de confirmation
     try {
-      await this.emailService.sendPasswordChangedEmail(user.email, user.fullname);
+      await this.emailService.sendPasswordChangedEmail(
+        user.email,
+        user.fullname,
+      );
     } catch (emailError) {
-      this.logger.error('Failed to send password change confirmation email', emailError, {
-        module: 'AuthService',
-        userId,
-        email: user.email,
-      });
+      this.logger.error(
+        'Failed to send password change confirmation email',
+        emailError,
+        {
+          module: 'AuthService',
+          userId,
+          email: user.email,
+        },
+      );
       // Ne pas faire échouer le changement si l'email échoue
     }
 
@@ -409,8 +571,10 @@ export class AuthService {
     });
 
     return {
-      message: 'Mot de passe modifié avec succès. Toutes les sessions ont été déconnectées.',
+      message:
+        'Mot de passe modifié avec succès. Toutes les sessions ont été déconnectées.',
       requiresRelogin: true,
     };
   }
 }
+

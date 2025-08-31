@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { TwoFaSession, TwoFaSessionDocument } from '../../database/schemas/two-fa-session.schema';
+import {
+  TwoFaSession,
+  TwoFaSessionDocument,
+} from '../../database/schemas/two-fa-session.schema';
 import { AppLoggerService } from '../../common/logger';
 import * as crypto from 'crypto';
 
@@ -24,7 +27,7 @@ export class TwoFaService {
   async createTwoFaSession(userId: string): Promise<TwoFaSessionResult> {
     // Générer un token de session sécurisé
     const sessionToken = crypto.randomBytes(32).toString('hex');
-    
+
     // Supprimer les anciennes sessions pour cet utilisateur
     await this.twoFaSessionModel.deleteMany({ userId });
 
@@ -44,12 +47,16 @@ export class TwoFaService {
   /**
    * Valide une session 2FA
    */
-  async validateTwoFaSession(sessionToken: string): Promise<{ isValid: boolean; userId?: string; sessionDoc?: TwoFaSessionDocument }> {
+  async validateTwoFaSession(sessionToken: string): Promise<{
+    isValid: boolean;
+    userId?: string;
+    sessionDoc?: TwoFaSessionDocument;
+  }> {
     try {
       const sessionDoc = await this.twoFaSessionModel.findOne({
         sessionToken,
         used: false,
-        expiresAt: { $gt: new Date() }
+        expiresAt: { $gt: new Date() },
       });
 
       if (!sessionDoc) {
@@ -59,13 +66,13 @@ export class TwoFaService {
       return {
         isValid: true,
         userId: sessionDoc.userId.toString(),
-        sessionDoc
+        sessionDoc,
       };
     } catch (error) {
       this.logger.error('Error validating 2FA session', error, {
         module: 'TwoFaService',
         method: 'validateTwoFaSession',
-        sessionToken
+        sessionToken,
       });
       return { isValid: false };
     }
@@ -86,7 +93,7 @@ export class TwoFaService {
   async invalidateUserSessions(userId: string): Promise<void> {
     await this.twoFaSessionModel.updateMany(
       { userId, used: false },
-      { used: true }
+      { used: true },
     );
   }
 
@@ -95,10 +102,7 @@ export class TwoFaService {
    */
   async cleanupExpiredSessions(): Promise<void> {
     await this.twoFaSessionModel.deleteMany({
-      $or: [
-        { expiresAt: { $lt: new Date() } },
-        { used: true }
-      ],
+      $or: [{ expiresAt: { $lt: new Date() } }, { used: true }],
     });
   }
 }

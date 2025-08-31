@@ -26,7 +26,13 @@ export class User {
   @Prop({ required: true, enum: Gender })
   gender: Gender;
 
-  @Prop({ required: true, unique: true, lowercase: true, trim: true, index: true })
+  @Prop({
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+    index: true,
+  })
   email: string;
 
   @Prop({ required: true, select: false })
@@ -37,6 +43,9 @@ export class User {
 
   @Prop({ default: true })
   isActive: boolean;
+
+  @Prop({ default: false })
+  isEmailVerified: boolean;
 
   @Prop()
   lastLogin: Date;

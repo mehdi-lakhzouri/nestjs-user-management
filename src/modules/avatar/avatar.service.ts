@@ -104,7 +104,7 @@ export class AvatarService {
         this.logger.info('Avatar file deleted successfully', {
           module: 'AvatarService',
           method: 'deleteAvatar',
-          avatarUrl
+          avatarUrl,
         });
       } catch (error) {
         // Le fichier n'existe pas ou ne peut pas être supprimé
@@ -112,14 +112,14 @@ export class AvatarService {
         this.logger.info('Avatar file not found or already deleted', {
           module: 'AvatarService',
           method: 'deleteAvatar',
-          avatarUrl
+          avatarUrl,
         });
       }
     } catch (error) {
       this.logger.error('Failed to delete avatar file', error, {
         module: 'AvatarService',
         method: 'deleteAvatar',
-        avatarUrl
+        avatarUrl,
       });
       // On ne lance pas d'exception pour ne pas bloquer les autres opérations
     }
@@ -137,13 +137,13 @@ export class AvatarService {
         this.logger.info('Upload directory created successfully', {
           module: 'AvatarService',
           method: 'ensureUploadDirectoryExists',
-          uploadPath: this.uploadPath
+          uploadPath: this.uploadPath,
         });
       } catch (mkdirError) {
         this.logger.error('Failed to create upload directory', mkdirError, {
           module: 'AvatarService',
           method: 'ensureUploadDirectoryExists',
-          uploadPath: this.uploadPath
+          uploadPath: this.uploadPath,
         });
       }
     }

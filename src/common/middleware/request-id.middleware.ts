@@ -17,7 +17,7 @@ export class RequestIdMiddleware implements NestMiddleware {
     const requestId = uuidv4();
     req.requestId = requestId;
     res.setHeader('X-Request-ID', requestId);
-    
+
     next();
   }
 }

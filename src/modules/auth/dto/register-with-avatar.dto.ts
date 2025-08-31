@@ -1,4 +1,13 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsEnum, IsNumber, Min, Max } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  IsEnum,
+  IsNumber,
+  Min,
+  Max,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Gender } from '../../../database/schemas/user.schema';
 
@@ -26,5 +35,4 @@ export class RegisterWithAvatarDto {
   @IsString()
   @MinLength(8)
   password: string;
-
 }

@@ -31,13 +31,18 @@ export class ResponseTransformInterceptor<T>
         const request = context.switchToHttp().getRequest();
         const isApiDoc = request.url.includes('/api/docs');
         const isSwaggerResource = request.url.includes('swagger');
-        
+
         if (isApiDoc || isSwaggerResource) {
           return data;
         }
 
         // Skip transformation if data is already in the correct format
-        if (data && typeof data === 'object' && 'statusCode' in data && 'data' in data) {
+        if (
+          data &&
+          typeof data === 'object' &&
+          'statusCode' in data &&
+          'data' in data
+        ) {
           return data;
         }
 

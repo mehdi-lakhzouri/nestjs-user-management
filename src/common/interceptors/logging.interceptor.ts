@@ -1,4 +1,9 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import {
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { AppLoggerService } from '../logger';
@@ -22,7 +27,7 @@ export class LoggingInterceptor implements NestInterceptor {
       url,
       userAgent,
       ip,
-      userId
+      userId,
     });
 
     return next.handle().pipe(
@@ -34,7 +39,7 @@ export class LoggingInterceptor implements NestInterceptor {
             url,
             response.statusCode,
             duration,
-            'LoggingInterceptor'
+            'LoggingInterceptor',
           );
         },
         error: (error) => {
@@ -46,10 +51,10 @@ export class LoggingInterceptor implements NestInterceptor {
             url,
             duration: `${duration}ms`,
             statusCode: response.statusCode,
-            userId
+            userId,
           });
-        }
-      })
+        },
+      }),
     );
   }
 }

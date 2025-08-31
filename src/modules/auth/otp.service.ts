@@ -35,16 +35,19 @@ export class OtpService {
   /**
    * Crée un nouvel OTP pour un utilisateur
    */
-  async createOtp(userId: string, type: 'login' | 'password-reset' | '2fa' = 'login'): Promise<{ otp: string; otpHash: string }> {
+  async createOtp(
+    userId: string,
+    type: 'login' | 'password-reset' | '2fa' = 'login',
+  ): Promise<{ otp: string; otpHash: string }> {
     // Générer un OTP sécurisé
     const otp = this.generateSecureOtp();
     const otpHash = await PasswordUtil.hash(otp);
 
     // Supprimer les anciens OTPs non utilisés pour cet utilisateur et ce type
-    await this.otpModel.deleteMany({ 
-      userId, 
+    await this.otpModel.deleteMany({
+      userId,
       type,
-      used: false 
+      used: false,
     });
 
     // Créer le nouvel OTP avec expiration de 4 minutes
@@ -65,7 +68,11 @@ export class OtpService {
   /**
    * Valide un code OTP fourni par l'utilisateur
    */
-  async validateOtp(userId: string, providedOtp: string, type: 'login' | 'password-reset' | '2fa' = 'login'): Promise<OtpValidationResult> {
+  async validateOtp(
+    userId: string,
+    providedOtp: string,
+    type: 'login' | 'password-reset' | '2fa' = 'login',
+  ): Promise<OtpValidationResult> {
     try {
       // Rechercher l'OTP actif pour cet utilisateur
       const otpDoc = await this.otpModel.findOne({
@@ -73,13 +80,13 @@ export class OtpService {
         type,
         used: false,
         expiresAt: { $gt: new Date() },
-        attempts: { $gt: 0 }
+        attempts: { $gt: 0 },
       });
 
       if (!otpDoc) {
         return {
           isValid: false,
-          error: 'No valid OTP found. Please request a new one.'
+          error: 'No valid OTP found. Please request a new one.',
         };
       }
 
@@ -95,16 +102,16 @@ export class OtpService {
           // Marquer comme utilisé si plus d'essais
           otpDoc.used = true;
           await otpDoc.save();
-          
+
           return {
             isValid: false,
-            error: 'Maximum attempts reached. Please request a new OTP.'
+            error: 'Maximum attempts reached. Please request a new OTP.',
           };
         }
 
         return {
           isValid: false,
-          error: `Invalid OTP. ${otpDoc.attempts} attempts remaining.`
+          error: `Invalid OTP. ${otpDoc.attempts} attempts remaining.`,
         };
       }
 
@@ -114,19 +121,18 @@ export class OtpService {
 
       return {
         isValid: true,
-        otpDoc
+        otpDoc,
       };
-
     } catch (error) {
       this.logger.error('Error validating OTP', error, {
         module: 'OtpService',
         method: 'validateOtp',
         userId,
-        type
+        type,
       });
       return {
         isValid: false,
-        error: 'OTP validation failed. Please try again.'
+        error: 'OTP validation failed. Please try again.',
       };
     }
   }
@@ -134,7 +140,10 @@ export class OtpService {
   /**
    * Invalide tous les OTPs actifs pour un utilisateur
    */
-  async invalidateUserOtps(userId: string, type?: 'login' | 'password-reset' | '2fa'): Promise<void> {
+  async invalidateUserOtps(
+    userId: string,
+    type?: 'login' | 'password-reset' | '2fa',
+  ): Promise<void> {
     const query: any = { userId, used: false };
     if (type) {
       query.type = type;
@@ -151,7 +160,7 @@ export class OtpService {
       $or: [
         { expiresAt: { $lt: new Date() } },
         { used: true },
-        { attempts: { $lte: 0 } }
+        { attempts: { $lte: 0 } },
       ],
     });
   }
@@ -166,20 +175,20 @@ export class OtpService {
     used: number;
   }> {
     const now = new Date();
-    
+
     const [total, active, expired, used] = await Promise.all([
       this.otpModel.countDocuments({}),
       this.otpModel.countDocuments({
         used: false,
         expiresAt: { $gt: now },
-        attempts: { $gt: 0 }
+        attempts: { $gt: 0 },
       }),
       this.otpModel.countDocuments({
-        expiresAt: { $lte: now }
+        expiresAt: { $lte: now },
       }),
       this.otpModel.countDocuments({
-        used: true
-      })
+        used: true,
+      }),
     ]);
 
     return { total, active, expired, used };
